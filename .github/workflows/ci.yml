@@ -44,3 +44,8 @@ jobs:
 
       - name: Run all project checks
         run: make all
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.64.8  

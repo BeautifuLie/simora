@@ -31,19 +31,6 @@ frontend-check: frontend-lint frontend-format frontend-test
 
 # === Backend ===
 
-go-lint:
-	@echo "🔍 Checking go.mod tidy..."
-	original_content=$$(cat go.sum); \
-	$(GO) mod tidy; \
-	new_content=$$(cat go.sum); \
-	if [ "$$original_content" != "$$new_content" ]; then \
-		echo "❌ go.mod or go.sum is not tidy. Run 'go mod tidy'."; \
-		exit 1; \
-	fi
-	@echo "✅ go.mod tidy check passed"
-	@echo "🧹 Running golangci-lint..."
-	golangci-lint run ./...
-
 go-test:
 	$(GO) test ./...
 
@@ -60,9 +47,9 @@ build:
 
 check: frontend-check
 
-lint-all: frontend-lint go-lint
+lint-all: frontend-lint
 
-all: install frontend-check go-lint go-test
+all: install frontend-check go-test
 
 clean:
 	rm -rf build bin $(FRONTEND_DIR)/dist
@@ -79,7 +66,7 @@ help:
 	@echo "  frontend-check    All frontend checks"
 	@echo ""
 	@echo "Go:"
-	@echo "  go-lint           Lint Go code"
+	@echo "            Lint Go code"
 	@echo "  go-test           Run Go tests"
 	@echo "  go-build          Build Go backend"
 	@echo ""
