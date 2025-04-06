@@ -42,7 +42,6 @@ yarn-error.log*
 Thumbs.db
 
 # Optional lockfiles 
-package-lock.json
 pnpm-lock.yaml
 yarn.lock
 
