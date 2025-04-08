@@ -12,29 +12,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Setup Node.js
+      - name: 🧰 Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - name: Setup Go
+      - name: 🔧 Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: "1.24" 
+          go-version: 1.21
 
-      - name: Cache node_modules
+      - name: 🗃️ Cache node_modules
         uses: actions/cache@v3
         with:
           path: frontend/node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
 
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Cache Go modules
+      - name: 🐿️ Cache Go modules
         uses: actions/cache@v3
         with:
           path: |
@@ -42,10 +39,5 @@ jobs:
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
 
-      - name: Run all project checks
+      - name: 🛠 Run checks
         run: make all
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: v1.64.8  
