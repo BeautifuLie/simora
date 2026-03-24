@@ -80,6 +80,7 @@ interface AppState {
     organizations: Organization[];
     dataLoading: boolean;
     dataError: string | null;
+    settingsError: string | null;
 
     // Navigation
     protocol: Protocol;
@@ -721,6 +722,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     organizations: [],
     dataLoading: false,
     dataError: null,
+    settingsError: null,
     protocol: 'http',
     activeOrgId: null,
     activeProjectId: null,
@@ -753,8 +755,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                             merged.theme = DEFAULT_SETTINGS.theme;
                         set({ settings: merged as typeof DEFAULT_SETTINGS });
                     }
-                } catch {
-                    /* non-fatal */
+                } catch (e) {
+                    set({ settingsError: String(e) });
                 }
             }
             const orgs = isWails ? await OrganizationService.LoadOrganizations() : MOCK_ORGS;
