@@ -1,9 +1,10 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X, Monitor, Sliders, Sparkles, Trash2, Check, Settings } from 'lucide-react';
+import { X, Monitor, Sliders, Sparkles, Trash2, Settings } from 'lucide-react';
 import { cn, shortcut } from '@/lib/utils';
 import { useAppStore, type AppSettings } from '@/store/app';
-import { ClearCookies } from '../../../wailsjs/go/service/RequestService';
+import { ClearCookies, GetCookies, DeleteCookie } from '../../../wailsjs/go/service/RequestService';
+import type { service } from '../../../wailsjs/go/models';
 import { GetVersion } from '../../../wailsjs/go/main/App';
 import logo from '@/assets/logo.png';
 import {
@@ -401,38 +402,132 @@ function AppearanceSection({
 
 // ── Clear cookies button ───────────────────────────────────────────────────
 
-function ClearCookiesButton() {
-    const [done, setDone] = React.useState(false);
+function CookieManager() {
+    const [cookies, setCookies] = React.useState<service.CookieEntry[]>([]);
+    const [loading, setLoading] = React.useState(false);
 
-    const handleClear = async () => {
-        if (isWails) await ClearCookies();
-        setDone(true);
-        setTimeout(() => setDone(false), 2000);
+    const load = React.useCallback(async () => {
+        if (!isWails) return;
+        setLoading(true);
+        try {
+            setCookies((await GetCookies()) ?? []);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        load();
+    }, [load]);
+
+    const handleDelete = async (domain: string, name: string) => {
+        if (isWails) await DeleteCookie(domain, name);
+        setCookies(cs => cs.filter(c => !(c.domain === domain && c.name === name)));
     };
 
+    const handleClearAll = async () => {
+        if (isWails) await ClearCookies();
+        setCookies([]);
+    };
+
+    if (loading) {
+        return (
+            <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-2)' }}>
+                Loading…
+            </div>
+        );
+    }
+
+    if (cookies.length === 0) {
+        return (
+            <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-2)' }}>
+                No cookies stored in this session.
+            </div>
+        );
+    }
+
     return (
-        <button
-            className="flex items-center gap-1.5 cursor-pointer rounded-[var(--r-sm)] transition-all duration-150"
-            style={{
-                height: 28,
-                padding: '0 10px',
-                background: done ? 'color-mix(in srgb, #4ade80 12%, transparent)' : 'var(--bg-1)',
-                border: `1px solid ${done ? 'color-mix(in srgb, #4ade80 40%, transparent)' : 'var(--border-1)'}`,
-                color: done ? '#4ade80' : 'var(--text-1)',
-                fontSize: 12,
-            }}
-            onClick={handleClear}
-        >
-            {done ? (
-                <>
-                    <Check style={{ width: 11, height: 11 }} /> Cleared
-                </>
-            ) : (
-                <>
-                    <Trash2 style={{ width: 11, height: 11 }} /> Clear jar
-                </>
-            )}
-        </button>
+        <div className="flex flex-col">
+            <div
+                className="flex flex-col divide-y"
+                style={{ borderTop: '1px solid var(--border-0)' }}
+            >
+                {cookies.map(c => (
+                    <div
+                        key={`${c.domain}|${c.name}`}
+                        className="flex items-center gap-2"
+                        style={{ padding: '6px 14px' }}
+                    >
+                        <div className="flex flex-col flex-1 min-w-0">
+                            <span
+                                className="truncate"
+                                style={{ fontSize: 12, color: 'var(--text-0)', fontWeight: 500 }}
+                            >
+                                {c.name}
+                            </span>
+                            <span
+                                className="truncate"
+                                style={{ fontSize: 11, color: 'var(--text-2)' }}
+                            >
+                                {c.domain}
+                                {c.path !== '/' ? c.path : ''}
+                            </span>
+                        </div>
+                        <span
+                            className="truncate"
+                            style={{
+                                fontSize: 11,
+                                color: 'var(--text-1)',
+                                maxWidth: 120,
+                                fontFamily: 'monospace',
+                            }}
+                            title={c.value}
+                        >
+                            {c.value}
+                        </span>
+                        {c.secure && (
+                            <span
+                                style={{
+                                    fontSize: 10,
+                                    color: '#4ade80',
+                                    background: 'color-mix(in srgb, #4ade80 12%, transparent)',
+                                    border: '1px solid color-mix(in srgb, #4ade80 30%, transparent)',
+                                    borderRadius: 4,
+                                    padding: '0 5px',
+                                    flexShrink: 0,
+                                }}
+                            >
+                                secure
+                            </span>
+                        )}
+                        <button
+                            title="Delete cookie"
+                            className="cursor-pointer transition-colors hover:text-[var(--red)] shrink-0"
+                            style={{ color: 'var(--text-2)' }}
+                            onClick={() => handleDelete(c.domain, c.name)}
+                        >
+                            <Trash2 style={{ width: 11, height: 11 }} />
+                        </button>
+                    </div>
+                ))}
+            </div>
+            <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border-0)' }}>
+                <button
+                    className="flex items-center gap-1.5 cursor-pointer rounded-[var(--r-sm)] transition-all duration-150"
+                    style={{
+                        height: 28,
+                        padding: '0 10px',
+                        background: 'var(--bg-1)',
+                        border: '1px solid var(--border-1)',
+                        color: 'var(--text-1)',
+                        fontSize: 12,
+                    }}
+                    onClick={handleClearAll}
+                >
+                    <Trash2 style={{ width: 11, height: 11 }} /> Clear all
+                </button>
+            </div>
+        </div>
     );
 }
 
@@ -504,12 +599,7 @@ function RequestSection({
             </SectionCard>
 
             <SectionCard title="Cookie jar">
-                <SettingRow
-                    label="Clear all cookies"
-                    hint="Remove every cookie stored in the current session"
-                >
-                    <ClearCookiesButton />
-                </SettingRow>
+                <CookieManager />
             </SectionCard>
         </div>
     );
