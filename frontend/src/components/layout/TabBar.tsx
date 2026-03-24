@@ -119,7 +119,7 @@ function TabItem({ tab }: { tab: Tab }) {
 // ── TabBar ────────────────────────────────────────────────────────────────
 
 export function TabBar() {
-    const { tabs, createRequest } = useAppStore();
+    const { tabs, createRequest, duplicateTab } = useAppStore();
     const activePath = useAppStore(selectActivePath);
     const activeCollectionId = useAppStore(s => s.activeCollectionId);
     const activeOrgId = useAppStore(s => s.activeOrgId);
@@ -143,10 +143,14 @@ export function TabBar() {
                 e.preventDefault();
                 handleNewTab();
             }
+            if (mod && e.key === 'd') {
+                e.preventDefault();
+                duplicateTab();
+            }
         };
         document.addEventListener('keydown', handler);
         return () => document.removeEventListener('keydown', handler);
-    }, [handleNewTab]);
+    }, [handleNewTab, duplicateTab]);
 
     return (
         <div

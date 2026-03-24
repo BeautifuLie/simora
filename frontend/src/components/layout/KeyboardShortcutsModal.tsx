@@ -70,6 +70,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
         shortcuts: [
             { keys: [mod, 'K'], label: 'Command palette' },
             { keys: [mod, 'T'], label: 'New tab' },
+            { keys: [mod, 'D'], label: 'Duplicate tab' },
             { keys: [mod, 'E'], label: 'Environments panel' },
             { keys: [mod, ','], label: 'Settings' },
             { keys: [mod, shift, '/'], label: 'Keyboard shortcuts' },
