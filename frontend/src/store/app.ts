@@ -196,6 +196,16 @@ interface AppState {
         _folderId: string
     ) => void;
     moveRequest: (_requestId: string, _toCollectionId: string, _toFolderId: string | null) => void;
+    reorderRequest: (
+        _requestId: string,
+        _targetRequestId: string,
+        _position: 'before' | 'after'
+    ) => void;
+    reorderFolder: (
+        _folderId: string,
+        _targetFolderId: string,
+        _position: 'before' | 'after'
+    ) => void;
     createCollection: (_orgId: string, _projectId: string, _name: string) => string;
     importCollection: (_orgId: string, _projectId: string, _col: Collection) => void;
     renameCollection: (_collectionId: string, _name: string) => void;
@@ -1814,6 +1824,167 @@ export const useAppStore = create<AppState>((set, get) => ({
             })) as Organization[];
 
             return { organizations: orgs2 };
+        });
+    },
+
+    reorderRequest: (requestId, targetRequestId, position) => {
+        set(s => {
+            // Find which container (collection + optional folder) holds the target request.
+            let targetCol = '';
+            let targetFolder: string | null = null;
+
+            outer: for (const org of s.organizations) {
+                for (const proj of org.projects ?? []) {
+                    for (const col of proj.collections ?? []) {
+                        if (col.requests?.some(r => r.id === targetRequestId)) {
+                            targetCol = col.id;
+                            targetFolder = null;
+                            break outer;
+                        }
+
+                        for (const f of col.folders ?? []) {
+                            if (f.requests?.some(r => r.id === targetRequestId)) {
+                                targetCol = col.id;
+                                targetFolder = f.id;
+                                break outer;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!targetCol) return s;
+
+            // Extract the moved request from its current location.
+            let moved: Request | null = null;
+            const orgs1 = s.organizations.map(org => ({
+                ...org,
+                projects: org.projects?.map(proj => ({
+                    ...proj,
+                    collections: proj.collections?.map(col => {
+                        const fromRoot = col.requests?.find(r => r.id === requestId);
+
+                        if (fromRoot) {
+                            moved = fromRoot;
+
+                            return {
+                                ...col,
+                                requests: col.requests!.filter(r => r.id !== requestId),
+                            };
+                        }
+
+                        return {
+                            ...col,
+                            folders: col.folders?.map(f => {
+                                const fromFolder = f.requests?.find(r => r.id === requestId);
+
+                                if (fromFolder) {
+                                    moved = fromFolder;
+
+                                    return {
+                                        ...f,
+                                        requests: f.requests!.filter(r => r.id !== requestId),
+                                    };
+                                }
+
+                                return f;
+                            }),
+                        };
+                    }),
+                })),
+            })) as Organization[];
+
+            if (!moved) return s;
+
+            const req = moved;
+
+            // Helper: insert req before/after targetRequestId in the array.
+            const spliceIn = (arr: Request[]): Request[] => {
+                const idx = arr.findIndex(r => r.id === targetRequestId);
+
+                if (idx === -1) return [...arr, req];
+
+                const insertAt = position === 'before' ? idx : idx + 1;
+
+                return [...arr.slice(0, insertAt), req, ...arr.slice(insertAt)];
+            };
+
+            // Insert into the target container.
+            const orgs2 = orgs1.map(org => ({
+                ...org,
+                projects: org.projects?.map(proj => ({
+                    ...proj,
+                    collections: proj.collections?.map(col => {
+                        if (col.id !== targetCol) return col;
+
+                        if (targetFolder) {
+                            return {
+                                ...col,
+                                folders: col.folders?.map(f =>
+                                    f.id === targetFolder
+                                        ? { ...f, requests: spliceIn(f.requests ?? []) }
+                                        : f
+                                ),
+                            };
+                        }
+
+                        return { ...col, requests: spliceIn(col.requests ?? []) };
+                    }),
+                })),
+            })) as Organization[];
+
+            return { organizations: orgs2 };
+        });
+    },
+
+    reorderFolder: (folderId, targetFolderId, position) => {
+        set(s => {
+            // Find which collection holds the target folder.
+            let targetCol = '';
+
+            outer: for (const org of s.organizations) {
+                for (const proj of org.projects ?? []) {
+                    for (const col of proj.collections ?? []) {
+                        if (col.folders?.some(f => f.id === targetFolderId)) {
+                            targetCol = col.id;
+                            break outer;
+                        }
+                    }
+                }
+            }
+
+            if (!targetCol) return s;
+
+            const orgs = s.organizations.map(org => ({
+                ...org,
+                projects: org.projects?.map(proj => ({
+                    ...proj,
+                    collections: proj.collections?.map(col => {
+                        if (col.id !== targetCol) return col;
+
+                        const folders = col.folders ?? [];
+                        const movedFolder = folders.find(f => f.id === folderId);
+
+                        if (!movedFolder) return col;
+
+                        const rest = folders.filter(f => f.id !== folderId);
+                        const targetIdx = rest.findIndex(f => f.id === targetFolderId);
+
+                        if (targetIdx === -1) return col;
+
+                        const insertAt = position === 'before' ? targetIdx : targetIdx + 1;
+                        const reordered = [
+                            ...rest.slice(0, insertAt),
+                            movedFolder,
+                            ...rest.slice(insertAt),
+                        ];
+
+                        return { ...col, folders: reordered };
+                    }),
+                })),
+            })) as Organization[];
+
+            return { organizations: orgs };
         });
     },
 
