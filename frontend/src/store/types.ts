@@ -115,14 +115,39 @@ export interface Environment {
 // CollectionVariable has the same shape as EnvVariable and is scoped to one collection.
 export type CollectionVariable = EnvVariable;
 
+// chainGet resolves a dot-path like "user.address.city" into a nested object.
+function chainGet(obj: unknown, parts: string[]): string | null {
+    let val: unknown = obj;
+    for (const p of parts) {
+        if (val == null || typeof val !== 'object') return null;
+        val = (val as Record<string, unknown>)[p];
+    }
+    if (val === undefined || val === null) return null;
+    return typeof val === 'object' ? JSON.stringify(val) : String(val);
+}
+
 export function resolveVars(
     text: string,
     env: Environment | null,
-    collectionVars?: CollectionVariable[]
+    collectionVars?: CollectionVariable[],
+    chainCache?: Record<string, unknown>
 ): string {
     if (!text.includes('{{')) return text;
     return text.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
         const trimmed = key.trim();
+        // Chain variables: {{chain:RequestName.field.sub}}
+        if (trimmed.startsWith('chain:') && chainCache) {
+            const path = trimmed.slice('chain:'.length);
+            const dot = path.indexOf('.');
+            const reqName = dot === -1 ? path : path.slice(0, dot);
+            const parts = dot === -1 ? [] : path.slice(dot + 1).split('.');
+            const data = chainCache[reqName];
+            if (data !== undefined) {
+                const resolved = parts.length === 0 ? String(data) : chainGet(data, parts);
+                if (resolved !== null) return resolved;
+            }
+            return match;
+        }
         // Environment variables take precedence over collection variables.
         if (env) {
             const envVar = env.variables.find(v => v.key === trimmed && v.enabled);
