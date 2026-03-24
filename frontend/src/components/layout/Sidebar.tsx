@@ -808,6 +808,7 @@ function RequestItem({
         useAppStore();
     const activePath = useAppStore(selectActivePath);
     const isActive = activePath?.requestId === req.id;
+    const isChained = useAppStore(s => req.name in s.chainCache);
     const [renaming, setRenaming] = React.useState(false);
     const [dragging, setDragging] = React.useState(false);
     const [dropIndicator, setDropIndicator] = React.useState<'before' | 'after' | null>(null);
@@ -1021,6 +1022,19 @@ function RequestItem({
                     >
                         {req.name}
                     </span>
+                    {isChained && (
+                        <span
+                            title="Response cached — use {{chain:${req.name}.field}} to reference values"
+                            style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: '50%',
+                                background: 'var(--accent)',
+                                flexShrink: 0,
+                                opacity: 0.7,
+                            }}
+                        />
+                    )}
                     <button
                         className="shrink-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-[var(--bg-3)]"
                         style={{ width: 20, height: 20, color: 'var(--text-2)', marginRight: -4 }}
