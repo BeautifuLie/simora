@@ -6,6 +6,14 @@ export function ClearCookies() {
   return window['go']['service']['RequestService']['ClearCookies']();
 }
 
+export function DeleteCookie(arg1, arg2) {
+  return window['go']['service']['RequestService']['DeleteCookie'](arg1, arg2);
+}
+
 export function ExecuteRequest(arg1, arg2, arg3, arg4) {
   return window['go']['service']['RequestService']['ExecuteRequest'](arg1, arg2, arg3, arg4);
+}
+
+export function GetCookies() {
+  return window['go']['service']['RequestService']['GetCookies']();
 }
