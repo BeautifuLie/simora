@@ -163,6 +163,24 @@ function BodyTab({ body }: { body: string }) {
         }
     }, [body]);
 
+    const graphqlErrorCount = React.useMemo(() => {
+        if (!isJson) return 0;
+        try {
+            const parsed = JSON.parse(body);
+            if (
+                parsed &&
+                typeof parsed === 'object' &&
+                !Array.isArray(parsed) &&
+                Array.isArray(parsed.errors)
+            ) {
+                return (parsed.errors as unknown[]).length;
+            }
+        } catch {
+            // ignore
+        }
+        return 0;
+    }, [body, isJson]);
+
     const isXml = React.useMemo(() => {
         const t = body.trimStart();
         return (
@@ -353,6 +371,22 @@ function BodyTab({ body }: { body: string }) {
                     </button>
                 </div>
             </div>
+
+            {/* GraphQL errors banner */}
+            {graphqlErrorCount > 0 && (
+                <div
+                    style={{
+                        padding: '5px 14px',
+                        background: 'color-mix(in srgb, var(--orange) 10%, var(--bg-1))',
+                        borderBottom:
+                            '1px solid color-mix(in srgb, var(--orange) 25%, transparent)',
+                        fontSize: 11.5,
+                        color: 'var(--orange)',
+                    }}
+                >
+                    GraphQL errors detected ({graphqlErrorCount})
+                </div>
+            )}
 
             {/* Code */}
             <div className="flex-1 overflow-auto">

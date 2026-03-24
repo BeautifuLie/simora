@@ -15,6 +15,7 @@ import { ResponsePanel } from '@/components/response/ResponsePanel';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { useAppStore, selectActivePath, selectEditing } from '@/store/app';
 import { KeyboardShortcutsModal } from '@/components/layout/KeyboardShortcutsModal';
+import { GetVersion } from '../../wailsjs/go/main/App';
 
 // ── Error Boundary ────────────────────────────────────────────────────────
 
@@ -207,6 +208,13 @@ function StatusBar() {
     const protocol = useAppStore(s => selectEditing(s)?.protocol ?? s.protocol);
     const activePath = useAppStore(selectActivePath);
     const editing = useAppStore(selectEditing);
+    const [version, setVersion] = React.useState('');
+
+    React.useEffect(() => {
+        GetVersion()
+            .then((v: string) => setVersion(v))
+            .catch(() => {});
+    }, []);
 
     const org = activePath ? organizations.find(o => o.id === activePath.orgId) : null;
     const project = org?.projects?.find(p => p.id === activePath?.projectId);
@@ -263,7 +271,9 @@ function StatusBar() {
             <div className="ml-auto flex items-center gap-3">
                 <EnvSwitcher />
                 <span style={{ color: 'var(--border-1)' }}>·</span>
-                <span style={{ color: 'var(--text-2)' }}>Simora v0.1</span>
+                <span style={{ color: 'var(--text-2)' }}>
+                    {version ? `Simora ${version}` : 'Simora'}
+                </span>
             </div>
         </div>
     );

@@ -434,9 +434,12 @@ function runTests(code: string, response: Response): Promise<TestResult[]> {
     if (!code.trim()) return Promise.resolve([]);
 
     return new Promise(resolve => {
+        let resolved = false;
         const worker = new Worker(new URL('./testWorker.ts', import.meta.url), { type: 'module' });
 
         const timer = setTimeout(() => {
+            if (resolved) return;
+            resolved = true;
             worker.terminate();
             resolve([
                 {
@@ -448,12 +451,16 @@ function runTests(code: string, response: Response): Promise<TestResult[]> {
         }, TEST_TIMEOUT_MS);
 
         worker.onmessage = (e: MessageEvent<TestResult[]>) => {
+            if (resolved) return;
+            resolved = true;
             clearTimeout(timer);
             worker.terminate();
             resolve(e.data);
         };
 
         worker.onerror = e => {
+            if (resolved) return;
+            resolved = true;
             clearTimeout(timer);
             worker.terminate();
             resolve([{ name: 'Script error', pass: false, error: e.message }]);

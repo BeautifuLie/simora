@@ -2,7 +2,6 @@ package service
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
@@ -18,17 +17,18 @@ import (
 
 type RequestService struct {
 	mu        sync.Mutex
+	appCtx    *ContextHolder
 	settings  *SettingsService
 	cookieJar http.CookieJar
 }
 
-func NewRequestService() (*RequestService, error) {
+func NewRequestService(appCtx *ContextHolder) (*RequestService, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, fmt.Errorf("create cookie jar: %w", err)
 	}
 
-	return &RequestService{settings: NewSettingsService(), cookieJar: jar}, nil
+	return &RequestService{appCtx: appCtx, settings: NewSettingsService(), cookieJar: jar}, nil
 }
 
 // ClearCookies resets the cookie jar, removing all stored cookies.
@@ -65,12 +65,16 @@ func (s *RequestService) ExecuteRequest(method, url, body string, headers map[st
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), method, url, reqBody)
+	req, err := http.NewRequestWithContext(s.appCtx.Get(), method, url, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	for k, v := range headers {
+		if k == "X-Simora-Binary" {
+			continue
+		}
+
 		req.Header.Set(k, v)
 	}
 
@@ -90,8 +94,6 @@ func (s *RequestService) ExecuteRequest(method, url, body string, headers map[st
 // If the X-Simora-Binary header is set, it decodes the base64 body and removes the marker header.
 func buildRequestBody(body string, headers map[string]string) (io.Reader, error) {
 	if headers["X-Simora-Binary"] == "base64" {
-		delete(headers, "X-Simora-Binary")
-
 		decoded, err := base64.StdEncoding.DecodeString(body)
 		if err != nil {
 			return nil, fmt.Errorf("decode binary body: %w", err)

@@ -280,6 +280,7 @@ function KVRow({
                                   .replace(/&/g, '&amp;')
                                   .replace(/</g, '&lt;')
                                   .replace(/>/g, '&gt;')
+                                  .replace(/"/g, '&quot;')
                                   .replace(
                                       /(\{\{[^}]*\}\})/g,
                                       '<mark style="background:rgba(251,191,36,0.18);color:var(--yellow);border-radius:2px">$1</mark>'
@@ -1256,6 +1257,7 @@ function GraphQLPanel() {
                                       .replace(/&/g, '&amp;')
                                       .replace(/</g, '&lt;')
                                       .replace(/>/g, '&gt;')
+                                      .replace(/"/g, '&quot;')
                                       .replace(
                                           /(\{\{[^}]*\}\})/g,
                                           '<mark style="background:rgba(251,191,36,0.18);color:var(--yellow);border-radius:2px">$1</mark>'
