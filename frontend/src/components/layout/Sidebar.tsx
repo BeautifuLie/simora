@@ -32,22 +32,47 @@ import {
 import { MethodBadge } from '@/components/ui/badge';
 
 // ── Drag payload ────────────────────────────────────────────────────────────
-const DND_KEY = 'simora/req';
-interface DragPayload {
+const DND_REQ_KEY = 'simora/req';
+const DND_FOLDER_KEY = 'simora/folder';
+
+interface RequestDragPayload {
     requestId: string;
     fromCollectionId: string;
     fromFolderId: string | null;
 }
-function encodeDrag(p: DragPayload) {
+
+interface FolderDragPayload {
+    folderId: string;
+    collectionId: string;
+}
+
+function encodeReqDrag(p: RequestDragPayload) {
     return JSON.stringify(p);
 }
-function decodeDrag(s: string): DragPayload | null {
+
+function decodeReqDrag(s: string): RequestDragPayload | null {
     try {
         return JSON.parse(s);
     } catch {
         return null;
     }
 }
+
+function encodeFolderDrag(p: FolderDragPayload) {
+    return JSON.stringify(p);
+}
+
+function decodeFolderDrag(s: string): FolderDragPayload | null {
+    try {
+        return JSON.parse(s);
+    } catch {
+        return null;
+    }
+}
+
+// Keep backward-compat aliases used in older drop handlers
+const DND_KEY = DND_REQ_KEY;
+const decodeDrag = decodeReqDrag;
 
 // ── Inline rename ──────────────────────────────────────────────────────────
 
@@ -776,11 +801,13 @@ function RequestItem({
     onToggleSelect?: (_id: string, _e: React.MouseEvent) => void;
     hasSelection?: boolean;
 }) {
-    const { openTab, renameRequest, deleteRequest, duplicateRequest } = useAppStore();
+    const { openTab, renameRequest, deleteRequest, duplicateRequest, reorderRequest } =
+        useAppStore();
     const activePath = useAppStore(selectActivePath);
     const isActive = activePath?.requestId === req.id;
     const [renaming, setRenaming] = React.useState(false);
     const [dragging, setDragging] = React.useState(false);
+    const [dropIndicator, setDropIndicator] = React.useState<'before' | 'after' | null>(null);
 
     React.useEffect(() => {
         if (isNew) setRenaming(true);
@@ -822,15 +849,38 @@ function RequestItem({
                 setDragging(true);
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData(
-                    DND_KEY,
-                    encodeDrag({
+                    DND_REQ_KEY,
+                    encodeReqDrag({
                         requestId: req.id,
                         fromCollectionId: collectionId,
                         fromFolderId: folderId ?? null,
                     })
                 );
             }}
-            onDragEnd={() => setDragging(false)}
+            onDragEnd={() => {
+                setDragging(false);
+                setDropIndicator(null);
+            }}
+            onDragOver={e => {
+                if (!e.dataTransfer.types.includes(DND_REQ_KEY)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'move';
+                const rect = e.currentTarget.getBoundingClientRect();
+                setDropIndicator(e.clientY < rect.top + rect.height / 2 ? 'before' : 'after');
+            }}
+            onDragLeave={e => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropIndicator(null);
+            }}
+            onDrop={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                const indicator = dropIndicator;
+                setDropIndicator(null);
+                const p = decodeReqDrag(e.dataTransfer.getData(DND_REQ_KEY));
+                if (!p || p.requestId === req.id) return;
+                reorderRequest(p.requestId, req.id, indicator ?? 'after');
+            }}
             onClick={e => {
                 if (renaming) return;
                 if (hasSelection || e.ctrlKey || e.metaKey) {
@@ -845,6 +895,34 @@ function RequestItem({
             }}
             onContextMenu={openCtx}
         >
+            {/* Drop position indicators */}
+            {dropIndicator === 'before' && (
+                <div
+                    aria-hidden
+                    className="absolute left-2 right-2 rounded"
+                    style={{
+                        top: 1,
+                        height: 2,
+                        background: 'var(--accent)',
+                        pointerEvents: 'none',
+                        zIndex: 10,
+                    }}
+                />
+            )}
+            {dropIndicator === 'after' && (
+                <div
+                    aria-hidden
+                    className="absolute left-2 right-2 rounded"
+                    style={{
+                        bottom: 1,
+                        height: 2,
+                        background: 'var(--accent)',
+                        pointerEvents: 'none',
+                        zIndex: 10,
+                    }}
+                />
+            )}
+
             {/* Checkbox (visible when selection mode active or hovered) */}
             <div
                 className={cn(
@@ -976,10 +1054,12 @@ function FolderItem({
     selectedIds?: Set<string>;
     onToggleSelect?: (_id: string, _e: React.MouseEvent) => void;
 }) {
-    const { renameFolder, deleteFolder, moveRequest } = useAppStore();
+    const { renameFolder, deleteFolder, moveRequest, reorderFolder } = useAppStore();
     const [open, setOpen] = React.useState(true);
     const [renaming, setRenaming] = React.useState(false);
     const [dropOver, setDropOver] = React.useState(false);
+    const [folderDragging, setFolderDragging] = React.useState(false);
+    const [dropIndicator, setDropIndicator] = React.useState<'before' | 'after' | null>(null);
     const { pos, open: openCtx, close: closeCtx } = useContextMenu();
 
     const ctxItems: CtxItem[] = [
@@ -999,7 +1079,7 @@ function FolderItem({
     ];
 
     return (
-        <div>
+        <div style={{ opacity: folderDragging ? 0.4 : 1 }}>
             <div
                 className="group relative w-full flex items-center gap-2.5 cursor-pointer transition-colors hover:bg-[var(--bg-2)] text-left"
                 style={{
@@ -1009,25 +1089,95 @@ function FolderItem({
                     outline: dropOver ? '2px solid var(--accent)' : 'none',
                     outlineOffset: -2,
                 }}
+                draggable={!renaming}
                 onClick={() => !renaming && setOpen(v => !v)}
                 onDoubleClick={e => {
                     e.stopPropagation();
                     setRenaming(true);
                 }}
                 onContextMenu={openCtx}
+                onDragStart={e => {
+                    setFolderDragging(true);
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData(
+                        DND_FOLDER_KEY,
+                        encodeFolderDrag({ folderId: folder.id, collectionId })
+                    );
+                }}
+                onDragEnd={() => {
+                    setFolderDragging(false);
+                    setDropIndicator(null);
+                }}
                 onDragOver={e => {
                     e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                    setDropOver(true);
+                    // Folder-over-folder: show insert indicator
+                    if (e.dataTransfer.types.includes(DND_FOLDER_KEY)) {
+                        e.stopPropagation();
+                        e.dataTransfer.dropEffect = 'move';
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setDropIndicator(
+                            e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+                        );
+                        return;
+                    }
+                    // Request-over-folder: highlight to move into folder
+                    if (e.dataTransfer.types.includes(DND_REQ_KEY)) {
+                        e.dataTransfer.dropEffect = 'move';
+                        setDropOver(true);
+                    }
                 }}
-                onDragLeave={() => setDropOver(false)}
+                onDragLeave={e => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                        setDropOver(false);
+                        setDropIndicator(null);
+                    }
+                }}
                 onDrop={e => {
                     e.preventDefault();
+                    const indicator = dropIndicator;
                     setDropOver(false);
-                    const p = decodeDrag(e.dataTransfer.getData(DND_KEY));
-                    if (p) moveRequest(p.requestId, collectionId, folder.id);
+                    setDropIndicator(null);
+
+                    // Folder reorder
+                    const fp = decodeFolderDrag(e.dataTransfer.getData(DND_FOLDER_KEY));
+                    if (fp && fp.folderId !== folder.id) {
+                        e.stopPropagation();
+                        reorderFolder(fp.folderId, folder.id, indicator ?? 'after');
+                        return;
+                    }
+
+                    // Request into folder
+                    const rp = decodeReqDrag(e.dataTransfer.getData(DND_REQ_KEY));
+                    if (rp) moveRequest(rp.requestId, collectionId, folder.id);
                 }}
             >
+                {/* Drop position indicators for folder reordering */}
+                {dropIndicator === 'before' && (
+                    <div
+                        aria-hidden
+                        className="absolute left-1 right-1 rounded"
+                        style={{
+                            top: 1,
+                            height: 2,
+                            background: 'var(--accent)',
+                            pointerEvents: 'none',
+                            zIndex: 10,
+                        }}
+                    />
+                )}
+                {dropIndicator === 'after' && (
+                    <div
+                        aria-hidden
+                        className="absolute left-1 right-1 rounded"
+                        style={{
+                            bottom: 1,
+                            height: 2,
+                            background: 'var(--accent)',
+                            pointerEvents: 'none',
+                            zIndex: 10,
+                        }}
+                    />
+                )}
                 <ChevronRight
                     style={{
                         width: 12,
