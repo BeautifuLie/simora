@@ -541,6 +541,7 @@ export namespace transport {
 	    Topic: string;
 	    Group: string;
 	    Offset: string;
+	    MaxMessages: number;
 	    Auth: KafkaAuth;
 	
 	    static createFrom(source: any = {}) {
@@ -553,6 +554,7 @@ export namespace transport {
 	        this.Topic = source["Topic"];
 	        this.Group = source["Group"];
 	        this.Offset = source["Offset"];
+	        this.MaxMessages = source["MaxMessages"];
 	        this.Auth = this.convertValues(source["Auth"], KafkaAuth);
 	    }
 	
