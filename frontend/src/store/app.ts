@@ -1252,9 +1252,18 @@ export const useAppStore = create<AppState>((set, get) => ({
                     );
                 }
                 const elapsed = Date.now() - t0;
+                let grpcStatus = '200 OK';
+                try {
+                    const parsed = JSON.parse(bodyStr);
+                    if (Array.isArray(parsed)) {
+                        grpcStatus = `${parsed.length} message${parsed.length !== 1 ? 's' : ''}`;
+                    }
+                } catch {
+                    /* not JSON */
+                }
                 const grpcRes: domain.Response = {
                     statusCode: 200,
-                    status: '200 OK',
+                    status: grpcStatus,
                     time: elapsed,
                     size: bodyStr.length,
                     body: bodyStr,
