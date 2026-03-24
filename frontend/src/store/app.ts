@@ -111,6 +111,7 @@ interface AppState {
     closeTab: (_tabId: string) => void;
     switchTab: (_tabId: string) => void;
     newBlankTab: () => void;
+    duplicateTab: () => void;
 
     // Actions — protocol switching
     setRequestProtocol: (_protocol: Protocol) => void;
@@ -870,6 +871,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     newBlankTab: () => {
         const tab = makeTab();
         set(s => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
+    },
+
+    duplicateTab: () => {
+        const { tabs, activeTabId } = get();
+        const src = tabs.find(t => t.id === activeTabId);
+        if (!src) return;
+        const clone = { ...src, id: crypto.randomUUID(), isDirty: src.isDirty };
+        const idx = tabs.findIndex(t => t.id === activeTabId);
+        const newTabs = [...tabs.slice(0, idx + 1), clone, ...tabs.slice(idx + 1)];
+        set({ tabs: newTabs, activeTabId: clone.id });
     },
 
     // ── Editing ───────────────────────────────────────────────────────────────
