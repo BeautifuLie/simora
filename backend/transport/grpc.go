@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
 )
@@ -111,6 +112,37 @@ func parseFileDescResponse(resp *reflectionpb.ServerReflectionResponse) ([]*desc
 	}
 }
 
+// buildFileDescriptor builds a FileDescriptor from a list of raw protos,
+// resolving cross-file imports by registering all returned descriptors.
+// The primary file is assumed to be fds[0].
+func buildFileDescriptor(fds []*descriptorpb.FileDescriptorProto) (protoreflect.FileDescriptor, error) {
+	if len(fds) == 0 {
+		return nil, errors.New("no file descriptors returned")
+	}
+
+	if len(fds) > maxReflectFileDescs {
+		fds = fds[:maxReflectFileDescs]
+	}
+
+	reg, err := protodesc.NewFiles(&descriptorpb.FileDescriptorSet{File: fds})
+	if err != nil {
+		// Fall back to single-file resolution (works for protos without imports).
+		fd, ferr := protodesc.NewFile(fds[0], (*protoregistry.Files)(nil))
+		if ferr != nil {
+			return nil, fmt.Errorf("build file descriptor: %w", err)
+		}
+
+		return fd, nil
+	}
+
+	fd, err := reg.FindFileByPath(fds[0].GetName())
+	if err != nil {
+		return nil, fmt.Errorf("find primary file descriptor: %w", err)
+	}
+
+	return fd, nil
+}
+
 // buildMethodDesc resolves a MethodDescriptor via server reflection.
 func buildMethodDesc(ctx context.Context, conn *grpc.ClientConn, serviceName, methodName string) (protoreflect.MethodDescriptor, error) {
 	reflectCtx, cancel := context.WithTimeout(ctx, grpcReflectTimeout)
@@ -121,13 +153,9 @@ func buildMethodDesc(ctx context.Context, conn *grpc.ClientConn, serviceName, me
 		return nil, err
 	}
 
-	if len(fds) == 0 {
-		return nil, fmt.Errorf("no file descriptors returned for %s", serviceName)
-	}
-
-	fd, err := protodesc.NewFile(fds[0], nil)
+	fd, err := buildFileDescriptor(fds)
 	if err != nil {
-		return nil, fmt.Errorf("build file descriptor: %w", err)
+		return nil, fmt.Errorf("no file descriptors returned for %s: %w", serviceName, err)
 	}
 
 	return findMethod(fd, serviceName, methodName)
@@ -296,13 +324,9 @@ func GrpcListMethods(ctx context.Context, server, serviceName string, useTLS boo
 		return nil, err
 	}
 
-	if len(fds) == 0 {
-		return nil, fmt.Errorf("no file descriptors for %s", serviceName)
-	}
-
-	fd, err := protodesc.NewFile(fds[0], nil)
+	fd, err := buildFileDescriptor(fds)
 	if err != nil {
-		return nil, fmt.Errorf("build file descriptor: %w", err)
+		return nil, fmt.Errorf("no file descriptors for %s: %w", serviceName, err)
 	}
 
 	return extractMethods(fd, serviceName)
