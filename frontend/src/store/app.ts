@@ -5,6 +5,7 @@ import * as RequestService from '../../wailsjs/go/service/RequestService';
 import * as KafkaService from '../../wailsjs/go/service/KafkaService';
 import * as SqsService from '../../wailsjs/go/service/SqsService';
 import * as GrpcService from '../../wailsjs/go/service/GrpcService';
+import * as WsService from '../../wailsjs/go/service/WsService';
 import * as SettingsService from '../../wailsjs/go/service/SettingsService';
 
 // Re-export all shared types from types.ts so components can import from one place.
@@ -26,6 +27,7 @@ export type {
     KafkaMessageFormat,
     KafkaConfig,
     SqsConfig,
+    WsConfig,
     EnvVariable,
     Environment,
     QueryParam,
@@ -52,6 +54,7 @@ import type {
     GrpcConfig,
     KafkaConfig,
     SqsConfig,
+    WsConfig,
     EnvVariable,
     Environment,
     QueryParam,
@@ -137,6 +140,7 @@ interface AppState {
     patchGrpc: (_patch: Partial<GrpcConfig>) => void;
     patchKafka: (_patch: Partial<KafkaConfig>) => void;
     patchSqs: (_patch: Partial<SqsConfig>) => void;
+    patchWs: (_patch: Partial<WsConfig>) => void;
     setTests: (_code: string) => void;
 
     // Actions — editing (operate on active tab)
@@ -357,6 +361,17 @@ function defaultSqs(): SqsConfig {
     };
 }
 
+function defaultWs(): WsConfig {
+    return {
+        url: '',
+        headers: [],
+        message: '',
+        maxMessages: 50,
+        idleTimeout: 5,
+        tlsInsecure: false,
+    };
+}
+
 function defaultAuth(): AuthConfig {
     return {
         type: 'none',
@@ -400,6 +415,7 @@ function editingFromRequest(req: Request): EditingRequest {
         grpc: raw.grpc ? ({ ...defaultGrpc(), ...raw.grpc } as GrpcConfig) : defaultGrpc(),
         kafka: raw.kafka ? ({ ...defaultKafka(), ...raw.kafka } as KafkaConfig) : defaultKafka(),
         sqs: raw.sqs ? ({ ...defaultSqs(), ...raw.sqs } as SqsConfig) : defaultSqs(),
+        ws: raw.ws ? ({ ...defaultWs(), ...raw.ws } as WsConfig) : defaultWs(),
         tests: raw.tests ?? '',
         testResults: [],
     };
@@ -860,6 +876,13 @@ export const useAppStore = create<AppState>((set, get) => ({
             const e = selectEditing(s);
             if (!e) return s;
             return patchEditing(s, { sqs: { ...e.sqs, ...patch } });
+        }),
+
+    patchWs: patch =>
+        set(s => {
+            const e = selectEditing(s);
+            if (!e) return s;
+            return patchEditing(s, { ws: { ...e.ws, ...patch } });
         }),
 
     setTests: tests => set(s => patchEditing(s, { tests })),
@@ -1348,6 +1371,57 @@ export const useAppStore = create<AppState>((set, get) => ({
                 return;
             }
 
+            // ── WebSocket ─────────────────────────────────────────────────────
+            if (editing.protocol === 'websocket') {
+                const w = editing.ws;
+                let bodyStr: string;
+                if (isWails) {
+                    bodyStr = await WsService.Connect({
+                        URL: rv(w.url),
+                        Headers: Object.fromEntries(
+                            w.headers.filter(h => h.enabled && h.key).map(h => [h.key, h.value])
+                        ),
+                        Message: w.message,
+                        MaxMessages: w.maxMessages || 50,
+                        IdleTimeout: w.idleTimeout || 5,
+                        TLSInsecure: w.tlsInsecure,
+                    } as any);
+                } else {
+                    bodyStr = JSON.stringify(
+                        { status: 'connected', url: w.url, count: 0, messages: [] },
+                        null,
+                        2
+                    );
+                }
+                const elapsed = Date.now() - t0;
+                let wsStatus = '200 OK';
+                try {
+                    const parsed = JSON.parse(bodyStr);
+                    if (typeof parsed?.count === 'number') {
+                        const n = parsed.count as number;
+                        wsStatus = `${n} message${n !== 1 ? 's' : ''}`;
+                    }
+                } catch {
+                    /* not JSON */
+                }
+                const wsRes: domain.Response = {
+                    statusCode: 200,
+                    status: wsStatus,
+                    time: elapsed,
+                    size: bodyStr.length,
+                    body: bodyStr,
+                    headers: {},
+                };
+                set(st =>
+                    patchActiveTab(st, {
+                        response: wsRes,
+                        responseLoading: false,
+                        testResults: [],
+                    })
+                );
+                return;
+            }
+
             // ── HTTP / GraphQL ──────────────────────────────────────────────────
             const res = isWails
                 ? await RequestService.ExecuteRequest(method, url, body, headersMap)
@@ -1402,6 +1476,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             grpc: e.grpc,
             kafka: e.kafka,
             sqs: e.sqs,
+            ws: e.ws,
         };
         if (isWails) {
             await OrganizationService.UpdateRequest(

@@ -53,6 +53,14 @@ const (
 	saslScram512 = "scram-sha-512"
 )
 
+// WebSocket defaults.
+const (
+	wsConnectTimeout = 10 * time.Second
+	wsIdleTimeout    = 5 * time.Second
+	wsDefaultMaxMsgs = 50
+	wsMaxMsgBytes    = 1 << 20 // 1 MiB per message
+)
+
 // SQS defaults and validation limits.
 const (
 	sqsDefaultRegion   = "us-east-1"
