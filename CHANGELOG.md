@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Cmd/Ctrl+D` keyboard shortcut to duplicate the active tab
+- `Cmd/Ctrl+F` keyboard shortcut to open search in the response body panel
+
+## [v0.1.1] - 2026-03-24
+
 ### Fixed
 
 - HTTP requests now respect the Wails application context and are cancelled on shutdown
