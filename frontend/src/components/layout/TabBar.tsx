@@ -86,6 +86,18 @@ function TabItem({ tab }: { tab: Tab }) {
                     SQS
                 </span>
             )}
+            {protocol === 'websocket' && (
+                <span
+                    style={{
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: '#22c55e',
+                        letterSpacing: '0.03em',
+                    }}
+                >
+                    WS
+                </span>
+            )}
 
             {/* Name */}
             <span className="flex-1 truncate" style={{ fontSize: 'var(--text-base)' }}>

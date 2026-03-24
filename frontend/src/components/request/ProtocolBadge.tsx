@@ -1,5 +1,5 @@
 import { useAppStore, selectEditing, type Protocol } from '@/store/app';
-import { Globe, Zap, Radio, MessageSquare } from 'lucide-react';
+import { Globe, Zap, Radio, MessageSquare, Wifi } from 'lucide-react';
 import React from 'react';
 
 // ── Protocol metadata ─────────────────────────────────────────────────────
@@ -14,6 +14,7 @@ export const PROTOCOL_META: {
     { id: 'grpc', label: 'gRPC', color: 'var(--purple)', icon: Zap },
     { id: 'kafka', label: 'Kafka', color: 'var(--orange)', icon: Radio },
     { id: 'sqs', label: 'SQS', color: 'var(--yellow)', icon: MessageSquare },
+    { id: 'websocket', label: 'WS', color: '#22c55e', icon: Wifi },
 ];
 
 export function getProtocolMeta(id: Protocol) {

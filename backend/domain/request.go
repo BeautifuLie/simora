@@ -62,6 +62,15 @@ type SqsConfig struct {
 	Attributes   []SqsAttribute `json:"attributes"`
 }
 
+type WsConfig struct {
+	URL         string          `json:"url"`
+	Headers     []RequestHeader `json:"headers"`
+	Message     string          `json:"message"`
+	MaxMessages int             `json:"maxMessages"`
+	IdleTimeout int             `json:"idleTimeout"`
+	TLSInsecure bool            `json:"tlsInsecure"`
+}
+
 type Request struct {
 	ID             string          `json:"id"`
 	Name           string          `json:"name"`
@@ -81,4 +90,5 @@ type Request struct {
 	Grpc           *GrpcConfig     `json:"grpc,omitempty"`
 	Kafka          *KafkaConfig    `json:"kafka,omitempty"`
 	Sqs            *SqsConfig      `json:"sqs,omitempty"`
+	Ws             *WsConfig       `json:"ws,omitempty"`
 }

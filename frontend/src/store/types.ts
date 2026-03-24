@@ -34,7 +34,7 @@ export interface AuthConfig {
     oauth2AccessToken: string;
 }
 
-export type Protocol = 'http' | 'graphql' | 'grpc' | 'kafka' | 'sqs';
+export type Protocol = 'http' | 'graphql' | 'grpc' | 'kafka' | 'sqs' | 'websocket';
 
 // ── Protocol-specific configs ──────────────────────────────────────────────
 
@@ -99,6 +99,15 @@ export interface SqsConfig {
     // FIFO-only fields
     messageGroupId: string;
     messageDeduplicationId: string;
+}
+
+export interface WsConfig {
+    url: string;
+    headers: RequestHeader[];
+    message: string; // optional initial message sent on connect
+    maxMessages: number; // 0 = default (50)
+    idleTimeout: number; // seconds, 0 = default (5)
+    tlsInsecure: boolean;
 }
 
 // ── Environment ────────────────────────────────────────────────────────────
@@ -208,6 +217,7 @@ export interface EditingRequest {
     grpc: GrpcConfig;
     kafka: KafkaConfig;
     sqs: SqsConfig;
+    ws: WsConfig;
     // Tests
     tests: string; // JS snippet
     testResults: TestResult[];

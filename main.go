@@ -29,6 +29,7 @@ func main() {
 	grpcSvc := service.NewGrpcService(appCtx)
 	kafkaSvc := service.NewKafkaService(appCtx)
 	sqsSvc := service.NewSqsService(appCtx)
+	wsSvc := service.NewWsService(appCtx)
 
 	app := NewApp(appCtx)
 
@@ -51,6 +52,7 @@ func main() {
 			service.NewSettingsService(),
 			sqsSvc,
 			grpcSvc,
+			wsSvc,
 		},
 	})
 	if err != nil {
