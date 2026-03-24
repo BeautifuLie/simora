@@ -450,6 +450,27 @@ function ConsumeConfig() {
                     ))}
                 </div>
             </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <Label>Max Messages</Label>
+                <input
+                    type="number"
+                    min={1}
+                    max={10000}
+                    value={editing.kafka.maxMessages || 50}
+                    onChange={e =>
+                        patchKafka({ maxMessages: Math.max(1, parseInt(e.target.value, 10) || 50) })
+                    }
+                    className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] focus:border-[var(--border-focus)] transition-colors"
+                    style={{
+                        height: 'var(--input-height)',
+                        padding: '0 10px',
+                        fontSize: 'var(--text-base)',
+                        color: 'var(--text-0)',
+                        border: '1px solid var(--border-1)',
+                        width: 120,
+                    }}
+                />
+            </div>
         </div>
     );
 }
