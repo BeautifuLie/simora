@@ -66,6 +66,19 @@ import type {
 
 import { resolveVars } from './types';
 
+// ── Recent requests ───────────────────────────────────────────────────────
+export interface RecentRequest {
+    id: string; // unique history entry id
+    name: string;
+    method: string;
+    url: string;
+    protocol: Protocol;
+    path: ActivePath | null;
+    sentAt: number; // unix ms
+}
+
+const MAX_RECENT = 20;
+
 // ── Selectors (use in useAppStore(selector)) ──────────────────────────────
 export const selectActiveTab = (s: AppState): Tab | null =>
     s.activeTabId ? (s.tabs.find(t => t.id === s.activeTabId) ?? null) : null;
@@ -82,6 +95,7 @@ interface AppState {
     dataLoading: boolean;
     dataError: string | null;
     settingsError: string | null;
+    recentRequests: RecentRequest[];
 
     // Navigation
     protocol: Protocol;
@@ -153,6 +167,7 @@ interface AppState {
     sendRequest: () => Promise<void>;
     saveRequest: () => Promise<void>;
     setChainValue: (_name: string, _value: unknown) => void;
+    clearRecentRequests: () => void;
 
     // Actions — organizations
     createOrganization: (_name: string) => void;
@@ -743,6 +758,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     dataLoading: false,
     dataError: null,
     settingsError: null,
+    recentRequests: [],
     protocol: 'http',
     activeOrgId: null,
     activeProjectId: null,
@@ -1030,12 +1046,36 @@ export const useAppStore = create<AppState>((set, get) => ({
             return patchEditing(s, { params, url: buildUrl(e.url, params) });
         }),
 
+    clearRecentRequests: () => set({ recentRequests: [] }),
+
     // ── Send / save ───────────────────────────────────────────────────────────
     sendRequest: async () => {
         const s = get();
         const tab = selectActiveTab(s);
         const editing = tab?.editing;
         if (!tab || !editing) return;
+
+        // Record in history before sending
+        const entry: RecentRequest = {
+            id: crypto.randomUUID(),
+            name: editing.name,
+            method: editing.method ?? 'GET',
+            url: editing.url ?? '',
+            protocol: editing.protocol,
+            path: tab.path ?? null,
+            sentAt: Date.now(),
+        };
+        set(s2 => ({
+            recentRequests: [
+                entry,
+                ...s2.recentRequests.filter(
+                    r =>
+                        r.url !== entry.url ||
+                        r.method !== entry.method ||
+                        r.protocol !== entry.protocol
+                ),
+            ].slice(0, MAX_RECENT),
+        }));
 
         const activeEnv = s.environments.find(e => e.id === s.activeEnvId) ?? null;
 
