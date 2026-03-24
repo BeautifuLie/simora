@@ -64,6 +64,7 @@ export interface KafkaConfig {
     mode: 'produce' | 'consume';
     group: string;
     offset: 'earliest' | 'latest';
+    maxMessages: number; // 0 = default (50)
     // Auth
     saslMechanism: KafkaSaslMechanism;
     saslUsername: string;
