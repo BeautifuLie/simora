@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- gRPC server-streaming RPCs are now supported: all response messages are collected (up to 100) and returned as a JSON array; the status bar shows "N messages" instead of "200 OK"
+
 ### Fixed
 
 - Import parser now returns a specific hint for OpenAPI/Swagger, Postman v1, and HAR formats instead of a generic "unrecognised format" message

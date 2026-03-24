@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -188,7 +189,16 @@ func findMethod(fd protoreflect.FileDescriptor, serviceName, methodName string) 
 	return nil, fmt.Errorf("service %q not found in file", serviceName)
 }
 
-// GrpcInvoke performs a unary gRPC call using server reflection to discover types.
+// applyMeta attaches gRPC metadata to the context if any entries are provided.
+func applyMeta(ctx context.Context, meta map[string]string) context.Context {
+	if len(meta) == 0 {
+		return ctx
+	}
+
+	return metadata.NewOutgoingContext(ctx, metadata.New(meta))
+}
+
+// GrpcInvoke performs a unary or server-streaming gRPC call via server reflection.
 func GrpcInvoke(ctx context.Context, req GrpcRequest) (string, error) {
 	if err := validateGrpcRequest(req); err != nil {
 		return "", err
@@ -206,8 +216,8 @@ func GrpcInvoke(ctx context.Context, req GrpcRequest) (string, error) {
 		return "", fmt.Errorf("resolve method: %w", err)
 	}
 
-	if md.IsStreamingClient() || md.IsStreamingServer() {
-		return "", errors.New("streaming RPCs are not yet supported")
+	if md.IsStreamingClient() {
+		return "", errors.New("client-streaming RPCs are not yet supported")
 	}
 
 	reqMsg, err := buildRequestMessage(md, req.Message)
@@ -215,25 +225,103 @@ func GrpcInvoke(ctx context.Context, req GrpcRequest) (string, error) {
 		return "", err
 	}
 
-	respMsg := dynamicpb.NewMessage(md.Output())
-
 	fullMethod, err := buildFullMethod(md)
 	if err != nil {
 		return "", err
 	}
 
-	invokeCtx, cancel := context.WithTimeout(ctx, grpcInvokeTimeout)
-	defer cancel()
-
-	if len(req.Meta) > 0 {
-		invokeCtx = metadata.NewOutgoingContext(invokeCtx, metadata.New(req.Meta))
+	if md.IsStreamingServer() {
+		return grpcInvokeServerStream(ctx, conn, md, fullMethod, reqMsg, req.Meta)
 	}
 
+	return grpcInvokeUnary(ctx, conn, md, fullMethod, reqMsg, req.Meta)
+}
+
+func grpcInvokeUnary(
+	ctx context.Context,
+	conn *grpc.ClientConn,
+	md protoreflect.MethodDescriptor,
+	fullMethod string,
+	reqMsg proto.Message,
+	meta map[string]string,
+) (string, error) {
+	invokeCtx, cancel := context.WithTimeout(applyMeta(ctx, meta), grpcInvokeTimeout)
+	defer cancel()
+
+	respMsg := dynamicpb.NewMessage(md.Output())
 	if err := conn.Invoke(invokeCtx, fullMethod, reqMsg, respMsg); err != nil {
 		return "", grpcError(err)
 	}
 
 	return marshalResponse(respMsg)
+}
+
+func grpcInvokeServerStream(
+	ctx context.Context,
+	conn *grpc.ClientConn,
+	md protoreflect.MethodDescriptor,
+	fullMethod string,
+	reqMsg proto.Message,
+	meta map[string]string,
+) (string, error) {
+	streamCtx, cancel := context.WithTimeout(applyMeta(ctx, meta), grpcStreamTimeout)
+	defer cancel()
+
+	return grpcServerStream(streamCtx, conn, md, fullMethod, reqMsg)
+}
+
+// grpcServerStream performs a server-streaming RPC, collecting up to maxServerStreamMessages
+// responses and returning them as a JSON array.
+func grpcServerStream(
+	ctx context.Context,
+	conn *grpc.ClientConn,
+	md protoreflect.MethodDescriptor,
+	fullMethod string,
+	reqMsg proto.Message,
+) (string, error) {
+	streamDesc := &grpc.StreamDesc{ServerStreams: true}
+
+	stream, err := conn.NewStream(ctx, streamDesc, fullMethod)
+	if err != nil {
+		return "", fmt.Errorf("open server stream: %w", err)
+	}
+
+	if err := stream.SendMsg(reqMsg); err != nil {
+		return "", fmt.Errorf("send request: %w", err)
+	}
+
+	if err := stream.CloseSend(); err != nil {
+		return "", fmt.Errorf("close send: %w", err)
+	}
+
+	var messages []json.RawMessage
+
+	for len(messages) < maxServerStreamMessages {
+		respMsg := dynamicpb.NewMessage(md.Output())
+		if err := stream.RecvMsg(respMsg); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
+			return "", grpcError(err)
+		}
+
+		mo := protojson.MarshalOptions{EmitUnpopulated: true}
+
+		b, err := mo.Marshal(respMsg)
+		if err != nil {
+			return "", fmt.Errorf("marshal stream message: %w", err)
+		}
+
+		messages = append(messages, json.RawMessage(b))
+	}
+
+	out, err := json.MarshalIndent(messages, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("marshal stream response: %w", err)
+	}
+
+	return string(out), nil
 }
 
 func validateGrpcRequest(req GrpcRequest) error {
@@ -457,24 +545,7 @@ func GrpcDescribeService(ctx context.Context, server, serviceName string, useTLS
 			continue
 		}
 
-		methods := svc.Methods()
-		desc := GrpcServiceDesc{
-			Service: string(svc.FullName()),
-			Methods: make([]GrpcMethodDesc, 0, methods.Len()),
-		}
-
-		for j := range methods.Len() {
-			m := methods.Get(j)
-			desc.Methods = append(desc.Methods, GrpcMethodDesc{
-				Name:            string(m.Name()),
-				ClientStreaming: m.IsStreamingClient(),
-				ServerStreaming: m.IsStreamingServer(),
-				InputType:       string(m.Input().FullName()),
-				OutputType:      string(m.Output().FullName()),
-				InputFields:     grpcFields(m.Input()),
-				OutputFields:    grpcFields(m.Output()),
-			})
-		}
+		desc := buildServiceDesc(svc)
 
 		b, err := json.MarshalIndent(desc, "", "  ")
 		if err != nil {
@@ -485,6 +556,35 @@ func GrpcDescribeService(ctx context.Context, server, serviceName string, useTLS
 	}
 
 	return "", fmt.Errorf("service %q not found", serviceName)
+}
+
+func buildServiceDesc(svc protoreflect.ServiceDescriptor) GrpcServiceDesc {
+	methods := svc.Methods()
+
+	limit := methods.Len()
+	if limit > maxReflectMethods {
+		limit = maxReflectMethods
+	}
+
+	desc := GrpcServiceDesc{
+		Service: string(svc.FullName()),
+		Methods: make([]GrpcMethodDesc, 0, limit),
+	}
+
+	for j := range limit {
+		m := methods.Get(j)
+		desc.Methods = append(desc.Methods, GrpcMethodDesc{
+			Name:            string(m.Name()),
+			ClientStreaming: m.IsStreamingClient(),
+			ServerStreaming: m.IsStreamingServer(),
+			InputType:       string(m.Input().FullName()),
+			OutputType:      string(m.Output().FullName()),
+			InputFields:     grpcFields(m.Input()),
+			OutputFields:    grpcFields(m.Output()),
+		})
+	}
+
+	return desc
 }
 
 // GrpcListServices uses server reflection to list all available service names.
