@@ -336,6 +336,10 @@ function defaultKafka(): KafkaConfig {
         messageFormat: 'json',
         protoSchema: '',
         protoMessageType: '',
+        schemaRegistryUrl: '',
+        schemaRegistrySubject: '',
+        schemaRegistryUsername: '',
+        schemaRegistryPassword: '',
     };
 }
 function defaultSqs(): SqsConfig {
@@ -1170,6 +1174,12 @@ export const useAppStore = create<AppState>((set, get) => ({
                     SaslPassword: k.saslPassword,
                     TLS: k.tls,
                 };
+                const schemaRegistry = {
+                    URL: k.schemaRegistryUrl,
+                    Subject: k.schemaRegistrySubject,
+                    Username: k.schemaRegistryUsername,
+                    Password: k.schemaRegistryPassword,
+                };
                 let bodyStr: string;
                 if (k.mode === 'produce') {
                     bodyStr = isWails
@@ -1187,6 +1197,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                               MessageFormat: k.messageFormat,
                               ProtoSchema: k.protoSchema,
                               ProtoMessageType: k.protoMessageType,
+                              SchemaRegistry: schemaRegistry,
                           } as any)
                         : JSON.stringify(
                               { status: 'produced', topic: k.topic, partition: 0, offset: 0 },
@@ -1202,6 +1213,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                               Offset: k.offset,
                               MaxMessages: k.maxMessages || 50,
                               Auth: auth,
+                              SchemaRegistry: schemaRegistry,
                           } as any)
                         : JSON.stringify(
                               { status: 'consumed', topic: k.topic, count: 0, messages: [] },

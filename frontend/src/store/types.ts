@@ -53,7 +53,7 @@ export interface GrpcConfig {
 }
 
 export type KafkaSaslMechanism = 'none' | 'plain' | 'scram-sha-256' | 'scram-sha-512';
-export type KafkaMessageFormat = 'json' | 'proto';
+export type KafkaMessageFormat = 'json' | 'proto' | 'avro';
 
 export interface KafkaConfig {
     bootstrap: string;
@@ -74,6 +74,11 @@ export interface KafkaConfig {
     messageFormat: KafkaMessageFormat;
     protoSchema: string; // inline .proto content
     protoMessageType: string; // e.g. "mypackage.MyMessage"
+    // Confluent Schema Registry (used when messageFormat = "avro")
+    schemaRegistryUrl: string;
+    schemaRegistrySubject: string;
+    schemaRegistryUsername: string;
+    schemaRegistryPassword: string;
 }
 
 export interface SqsConfig {

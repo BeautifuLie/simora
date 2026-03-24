@@ -272,6 +272,12 @@ function KafkaHeadersTable() {
 
 // ── Message tab (produce) ──────────────────────────────────────────────────
 
+const FORMAT_OPTIONS: { id: 'json' | 'proto' | 'avro'; label: string }[] = [
+    { id: 'json', label: 'JSON' },
+    { id: 'proto', label: 'Protobuf' },
+    { id: 'avro', label: 'Avro' },
+];
+
 function FormatToggle() {
     const editing = useAppStore(selectEditing);
     const patchKafka = useAppStore(s => s.patchKafka);
@@ -283,10 +289,10 @@ function FormatToggle() {
             className="flex items-center gap-1 shrink-0"
             style={{ background: 'var(--bg-3)', borderRadius: 'var(--r-sm)', padding: 2 }}
         >
-            {(['json', 'proto'] as const).map(f => (
+            {FORMAT_OPTIONS.map(f => (
                 <button
-                    key={f}
-                    onClick={() => patchKafka({ messageFormat: f })}
+                    key={f.id}
+                    onClick={() => patchKafka({ messageFormat: f.id })}
                     className={cn(
                         'cursor-pointer rounded-[var(--r-sm)] transition-colors duration-150'
                     )}
@@ -295,14 +301,98 @@ function FormatToggle() {
                         fontSize: 11.5,
                         fontWeight: 600,
                         height: 22,
-                        background: fmt === f ? 'var(--bg-1)' : 'transparent',
-                        color: fmt === f ? 'var(--text-0)' : 'var(--text-2)',
-                        border: fmt === f ? '1px solid var(--border-1)' : '1px solid transparent',
+                        background: fmt === f.id ? 'var(--bg-1)' : 'transparent',
+                        color: fmt === f.id ? 'var(--text-0)' : 'var(--text-2)',
+                        border:
+                            fmt === f.id ? '1px solid var(--border-1)' : '1px solid transparent',
                     }}
                 >
-                    {f === 'json' ? 'JSON' : 'Protobuf'}
+                    {f.label}
                 </button>
             ))}
+        </div>
+    );
+}
+
+function SchemaRegistryFields() {
+    const editing = useAppStore(selectEditing);
+    const patchKafka = useAppStore(s => s.patchKafka);
+    const [showPass, setShowPass] = React.useState(false);
+    if (!editing) return null;
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                    <Label>Schema Registry URL</Label>
+                    <FieldInput
+                        value={editing.kafka.schemaRegistryUrl}
+                        onChange={v => patchKafka({ schemaRegistryUrl: v })}
+                        placeholder="http://localhost:8081"
+                    />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                    <Label>Subject</Label>
+                    <FieldInput
+                        value={editing.kafka.schemaRegistrySubject}
+                        onChange={v => patchKafka({ schemaRegistrySubject: v })}
+                        placeholder="my-topic-value"
+                    />
+                </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                    <Label>
+                        Registry Username{' '}
+                        <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                            (optional)
+                        </span>
+                    </Label>
+                    <FieldInput
+                        value={editing.kafka.schemaRegistryUsername}
+                        onChange={v => patchKafka({ schemaRegistryUsername: v })}
+                        placeholder="username"
+                        mono={false}
+                    />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                    <Label>
+                        Registry Password{' '}
+                        <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                            (optional)
+                        </span>
+                    </Label>
+                    <div className="relative">
+                        <input
+                            type={showPass ? 'text' : 'password'}
+                            value={editing.kafka.schemaRegistryPassword}
+                            onChange={e => patchKafka({ schemaRegistryPassword: e.target.value })}
+                            placeholder="••••••••"
+                            className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] focus:border-[var(--border-focus)] transition-colors"
+                            style={{
+                                height: 'var(--input-height)',
+                                padding: '0 36px 0 10px',
+                                fontSize: 'var(--text-base)',
+                                fontFamily: "'JetBrains Mono Variable', monospace",
+                                color: 'var(--text-0)',
+                                border: '1px solid var(--border-1)',
+                            }}
+                            spellCheck={false}
+                        />
+                        <button
+                            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer transition-colors hover:text-[var(--text-1)]"
+                            style={{ color: 'var(--text-2)' }}
+                            onClick={() => setShowPass(v => !v)}
+                        >
+                            {showPass ? (
+                                <EyeOff style={{ width: 14, height: 14 }} />
+                            ) : (
+                                <Eye style={{ width: 14, height: 14 }} />
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
@@ -312,6 +402,7 @@ function ProduceMessage() {
     const patchKafka = useAppStore(s => s.patchKafka);
     if (!editing) return null;
     const isProto = editing.kafka.messageFormat === 'proto';
+    const isAvro = editing.kafka.messageFormat === 'avro';
 
     return (
         <div className="flex flex-col h-full animate-tab-in" style={{ padding: 12, gap: 12 }}>
@@ -372,6 +463,9 @@ function ProduceMessage() {
                 </div>
             )}
 
+            {/* Avro / Schema Registry fields (when format = avro) */}
+            {isAvro && <SchemaRegistryFields />}
+
             {/* Message value */}
             <div
                 style={{
@@ -387,6 +481,11 @@ function ProduceMessage() {
                     {isProto && (
                         <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
                             (JSON → serialised to proto)
+                        </span>
+                    )}
+                    {isAvro && (
+                        <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                            (JSON → serialised to Avro)
                         </span>
                     )}
                 </Label>
@@ -415,6 +514,7 @@ function ConsumeConfig() {
     const editing = useAppStore(selectEditing);
     const patchKafka = useAppStore(s => s.patchKafka);
     if (!editing) return null;
+    const hasRegistry = !!editing.kafka.schemaRegistryUrl;
 
     return (
         <div className="flex flex-col gap-5 animate-tab-in" style={{ padding: 16 }}>
@@ -471,6 +571,72 @@ function ConsumeConfig() {
                     }}
                 />
             </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <Label>
+                    Schema Registry URL{' '}
+                    <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                        (optional — auto-decodes Avro messages)
+                    </span>
+                </Label>
+                <div className="flex items-center gap-2">
+                    <FieldInput
+                        value={editing.kafka.schemaRegistryUrl}
+                        onChange={v => patchKafka({ schemaRegistryUrl: v })}
+                        placeholder="http://localhost:8081"
+                    />
+                    {hasRegistry && (
+                        <button
+                            className="shrink-0 cursor-pointer transition-colors hover:text-[var(--red)]"
+                            style={{ color: 'var(--text-2)' }}
+                            onClick={() =>
+                                patchKafka({
+                                    schemaRegistryUrl: '',
+                                    schemaRegistryUsername: '',
+                                    schemaRegistryPassword: '',
+                                })
+                            }
+                            title="Clear Schema Registry"
+                        >
+                            <X style={{ width: 14, height: 14 }} />
+                        </button>
+                    )}
+                </div>
+            </div>
+            {hasRegistry && (
+                <div style={{ display: 'flex', gap: 10 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                        <Label>
+                            Registry Username{' '}
+                            <span
+                                style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}
+                            >
+                                (optional)
+                            </span>
+                        </Label>
+                        <FieldInput
+                            value={editing.kafka.schemaRegistryUsername}
+                            onChange={v => patchKafka({ schemaRegistryUsername: v })}
+                            placeholder="username"
+                            mono={false}
+                        />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                        <Label>
+                            Registry Password{' '}
+                            <span
+                                style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}
+                            >
+                                (optional)
+                            </span>
+                        </Label>
+                        <FieldInput
+                            value={editing.kafka.schemaRegistryPassword}
+                            onChange={v => patchKafka({ schemaRegistryPassword: v })}
+                            placeholder="password"
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
