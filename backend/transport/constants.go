@@ -10,6 +10,13 @@ const (
 	// maxReflectFileDescs caps the number of FileDescriptorProto objects accepted
 	// from a single server-reflection response to prevent runaway memory growth.
 	maxReflectFileDescs = 100
+
+	// maxReflectServices caps the number of service names returned by ListServices
+	// to prevent a malicious server from flooding the client with entries.
+	maxReflectServices = 200
+
+	// maxReflectMethods caps the number of methods listed per service.
+	maxReflectMethods = 200
 )
 
 // Kafka network timeouts and offset names.

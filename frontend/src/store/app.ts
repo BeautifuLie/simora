@@ -866,7 +866,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     },
 
     closeTab: tabId => {
-        const { tabs, activeTabId } = get();
+        const { tabs, activeTabId, activeOrgId, activeProjectId } = get();
         const idx = tabs.findIndex(t => t.id === tabId);
         const newTabs = tabs.filter(t => t.id !== tabId);
         const newActiveId =
@@ -879,13 +879,20 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({
             tabs: newTabs,
             activeTabId: newActiveId,
+            activeOrgId: newActiveTab?.path?.orgId ?? activeOrgId,
+            activeProjectId: newActiveTab?.path?.projectId ?? activeProjectId,
             activeCollectionId: newActiveTab?.path?.collectionId ?? null,
         });
     },
 
     switchTab: tabId => {
         const tab = get().tabs.find(t => t.id === tabId) ?? null;
-        set({ activeTabId: tabId, activeCollectionId: tab?.path?.collectionId ?? null });
+        set(s => ({
+            activeTabId: tabId,
+            activeOrgId: tab?.path?.orgId ?? s.activeOrgId,
+            activeProjectId: tab?.path?.projectId ?? s.activeProjectId,
+            activeCollectionId: tab?.path?.collectionId ?? null,
+        }));
     },
 
     newBlankTab: () => {
@@ -1411,19 +1418,25 @@ export const useAppStore = create<AppState>((set, get) => ({
         set(s => {
             const newOrgs = s.organizations.filter(o => o.id !== id) as Organization[];
             const newTabs = s.tabs.filter(t => t.path?.orgId !== id);
+            const newActiveTabId = newTabs.find(t => t.id === s.activeTabId)
+                ? s.activeTabId
+                : (newTabs[0]?.id ?? null);
+            const newActiveTab = newTabs.find(t => t.id === newActiveTabId) ?? null;
             const fallbackOrg = newOrgs[0] ?? null;
+            const activeOrgDeleted = s.activeOrgId === id;
             return {
                 organizations: newOrgs,
                 tabs: newTabs,
-                activeTabId: newTabs.find(t => t.id === s.activeTabId)
-                    ? s.activeTabId
-                    : (newTabs[0]?.id ?? null),
-                activeOrgId: s.activeOrgId === id ? (fallbackOrg?.id ?? null) : s.activeOrgId,
-                activeProjectId:
-                    s.activeOrgId === id
-                        ? (fallbackOrg?.projects?.[0]?.id ?? null)
-                        : s.activeProjectId,
-                activeCollectionId: s.activeOrgId === id ? null : s.activeCollectionId,
+                activeTabId: newActiveTabId,
+                activeOrgId: activeOrgDeleted
+                    ? (newActiveTab?.path?.orgId ?? fallbackOrg?.id ?? null)
+                    : s.activeOrgId,
+                activeProjectId: activeOrgDeleted
+                    ? (newActiveTab?.path?.projectId ?? fallbackOrg?.projects?.[0]?.id ?? null)
+                    : s.activeProjectId,
+                activeCollectionId: activeOrgDeleted
+                    ? (newActiveTab?.path?.collectionId ?? null)
+                    : s.activeCollectionId,
             };
         });
         if (isWails) OrganizationService.DeleteOrganization(id).catch(console.error);
@@ -1463,19 +1476,23 @@ export const useAppStore = create<AppState>((set, get) => ({
             const newTabs = s.tabs.filter(
                 t => !(t.path?.orgId === orgId && t.path?.projectId === id)
             );
-            const fallbackProject =
-                s.activeProjectId === id
-                    ? (newOrgs.find(o => o.id === orgId)?.projects?.[0] ?? null)
-                    : null;
+            const newActiveTabId = newTabs.find(t => t.id === s.activeTabId)
+                ? s.activeTabId
+                : (newTabs[0]?.id ?? null);
+            const newActiveTab = newTabs.find(t => t.id === newActiveTabId) ?? null;
+            const activeProjectDeleted = s.activeProjectId === id;
             return {
                 organizations: newOrgs,
                 tabs: newTabs,
-                activeTabId: newTabs.find(t => t.id === s.activeTabId)
-                    ? s.activeTabId
-                    : (newTabs[0]?.id ?? null),
-                activeProjectId:
-                    s.activeProjectId === id ? (fallbackProject?.id ?? null) : s.activeProjectId,
-                activeCollectionId: s.activeProjectId === id ? null : s.activeCollectionId,
+                activeTabId: newActiveTabId,
+                activeProjectId: activeProjectDeleted
+                    ? (newActiveTab?.path?.projectId ??
+                      newOrgs.find(o => o.id === orgId)?.projects?.[0]?.id ??
+                      null)
+                    : s.activeProjectId,
+                activeCollectionId: activeProjectDeleted
+                    ? (newActiveTab?.path?.collectionId ?? null)
+                    : s.activeCollectionId,
             };
         });
         if (isWails) OrganizationService.DeleteProject(orgId, id).catch(console.error);
