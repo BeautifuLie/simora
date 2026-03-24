@@ -19,12 +19,13 @@ var Version = "dev"
 var assets embed.FS
 
 func main() {
-	reqSvc, err := service.NewRequestService()
+	appCtx := service.NewContextHolder()
+
+	reqSvc, err := service.NewRequestService(appCtx)
 	if err != nil {
 		log.Fatalf("could not initialise request service: %v", err)
 	}
 
-	appCtx := service.NewContextHolder()
 	grpcSvc := service.NewGrpcService(appCtx)
 	kafkaSvc := service.NewKafkaService(appCtx)
 	sqsSvc := service.NewSqsService(appCtx)

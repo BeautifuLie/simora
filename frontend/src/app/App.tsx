@@ -15,80 +15,8 @@ import { ResponsePanel } from '@/components/response/ResponsePanel';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { useAppStore, selectActivePath, selectEditing } from '@/store/app';
 import { KeyboardShortcutsModal } from '@/components/layout/KeyboardShortcutsModal';
-
-// ── Error Boundary ────────────────────────────────────────────────────────
-
-interface EBState {
-    error: Error | null;
-}
-
-class ErrorBoundary extends React.Component<React.PropsWithChildren<{ label?: string }>, EBState> {
-    constructor(props: React.PropsWithChildren<{ label?: string }>) {
-        super(props);
-        this.state = { error: null };
-    }
-
-    static getDerivedStateFromError(error: Error): EBState {
-        return { error };
-    }
-
-    render() {
-        if (this.state.error) {
-            return (
-                <div
-                    className="flex flex-col items-center justify-center h-full gap-3 p-6"
-                    style={{ background: 'var(--bg-1)', color: 'var(--text-1)' }}
-                >
-                    <div
-                        className="rounded-[var(--r-md)] p-4"
-                        style={{
-                            background: 'var(--red-dim)',
-                            border: '1px solid var(--red)',
-                            maxWidth: 420,
-                            width: '100%',
-                        }}
-                    >
-                        <div
-                            style={{
-                                fontSize: 'var(--text-md)',
-                                fontWeight: 600,
-                                color: 'var(--red)',
-                                marginBottom: 6,
-                            }}
-                        >
-                            {this.props.label ?? 'Component'} crashed
-                        </div>
-                        <div
-                            style={{
-                                fontSize: 'var(--text-sm)',
-                                color: 'var(--text-1)',
-                                fontFamily: 'monospace',
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-word',
-                            }}
-                        >
-                            {this.state.error.message}
-                        </div>
-                    </div>
-                    <button
-                        className="rounded-[var(--r-sm)] cursor-pointer hover:brightness-110 transition-all"
-                        style={{
-                            padding: '6px 14px',
-                            background: 'var(--bg-3)',
-                            border: '1px solid var(--border-2)',
-                            fontSize: 'var(--text-base)',
-                            color: 'var(--text-1)',
-                        }}
-                        onClick={() => this.setState({ error: null })}
-                    >
-                        Try again
-                    </button>
-                </div>
-            );
-        }
-        return this.props.children;
-    }
-}
+import { GetVersion } from '../../wailsjs/go/main/App';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 // ── Environment switcher ──────────────────────────────────────────────────
 
@@ -207,6 +135,13 @@ function StatusBar() {
     const protocol = useAppStore(s => selectEditing(s)?.protocol ?? s.protocol);
     const activePath = useAppStore(selectActivePath);
     const editing = useAppStore(selectEditing);
+    const [version, setVersion] = React.useState('');
+
+    React.useEffect(() => {
+        GetVersion()
+            .then((v: string) => setVersion(v))
+            .catch(() => {});
+    }, []);
 
     const org = activePath ? organizations.find(o => o.id === activePath.orgId) : null;
     const project = org?.projects?.find(p => p.id === activePath?.projectId);
@@ -263,7 +198,9 @@ function StatusBar() {
             <div className="ml-auto flex items-center gap-3">
                 <EnvSwitcher />
                 <span style={{ color: 'var(--border-1)' }}>·</span>
-                <span style={{ color: 'var(--text-2)' }}>Simora v0.1</span>
+                <span style={{ color: 'var(--text-2)' }}>
+                    {version ? `Simora ${version}` : 'Simora'}
+                </span>
             </div>
         </div>
     );

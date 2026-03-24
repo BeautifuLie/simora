@@ -32,7 +32,7 @@ func newRequestTestEnv(t *testing.T) *requestTestEnv {
 	t.Setenv("HOME", dir)
 	t.Setenv("USERPROFILE", dir)
 
-	svc, err := service.NewRequestService()
+	svc, err := service.NewRequestService(service.NewContextHolder())
 	require.NoError(t, err)
 
 	return &requestTestEnv{

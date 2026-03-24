@@ -1626,6 +1626,7 @@ export function Sidebar() {
     const {
         organizations,
         dataLoading,
+        dataError,
         loadOrganizations,
         createOrganization,
         createProject,
@@ -1818,6 +1819,20 @@ export function Sidebar() {
 
                         {/* List */}
                         <div className="flex-1 overflow-y-auto pb-2">
+                            {dataError && (
+                                <div
+                                    className="mx-2 mt-2 rounded p-2"
+                                    style={{
+                                        background: 'var(--red-dim)',
+                                        border: '1px solid var(--red)',
+                                        fontSize: 11,
+                                        color: 'var(--red)',
+                                    }}
+                                >
+                                    Failed to load data:{' '}
+                                    <span style={{ color: 'var(--text-1)' }}>{dataError}</span>
+                                </div>
+                            )}
                             {dataLoading ? (
                                 <div
                                     className="flex items-center justify-center py-10 gap-2"

@@ -9,6 +9,8 @@ import (
 	"simora/backend/domain"
 )
 
+const maxFolderDepth = 100
+
 //go:generate mockgen -destination=../test/mock/repository/organization.go -package=mock . OrganizationRepository
 type OrganizationRepository interface {
 	LoadOrganizations() ([]domain.Organisation, error)
@@ -75,7 +77,11 @@ func findCollection(collections []domain.Collection, id string) (int, bool) {
 	return -1, false
 }
 
-func addFolderToFolders(folders []domain.Folder, parentID string, newFolder domain.Folder) ([]domain.Folder, bool) {
+func addFolderToFolders(folders []domain.Folder, parentID string, newFolder domain.Folder, depth int) ([]domain.Folder, bool) {
+	if depth > maxFolderDepth {
+		return folders, false
+	}
+
 	for i := range folders {
 		if folders[i].ID == parentID {
 			folders[i].Folders = append(folders[i].Folders, newFolder)
@@ -83,7 +89,7 @@ func addFolderToFolders(folders []domain.Folder, parentID string, newFolder doma
 			return folders, true
 		}
 
-		if updated, found := addFolderToFolders(folders[i].Folders, parentID, newFolder); found {
+		if updated, found := addFolderToFolders(folders[i].Folders, parentID, newFolder, depth+1); found {
 			folders[i].Folders = updated
 
 			return folders, true
@@ -93,7 +99,11 @@ func addFolderToFolders(folders []domain.Folder, parentID string, newFolder doma
 	return folders, false
 }
 
-func addRequestToFolders(folders []domain.Folder, parentID string, req domain.Request) ([]domain.Folder, bool) {
+func addRequestToFolders(folders []domain.Folder, parentID string, req domain.Request, depth int) ([]domain.Folder, bool) {
+	if depth > maxFolderDepth {
+		return folders, false
+	}
+
 	for i := range folders {
 		if folders[i].ID == parentID {
 			folders[i].Requests = append(folders[i].Requests, req)
@@ -101,7 +111,7 @@ func addRequestToFolders(folders []domain.Folder, parentID string, req domain.Re
 			return folders, true
 		}
 
-		if updated, found := addRequestToFolders(folders[i].Folders, parentID, req); found {
+		if updated, found := addRequestToFolders(folders[i].Folders, parentID, req, depth+1); found {
 			folders[i].Folders = updated
 
 			return folders, true
@@ -111,7 +121,11 @@ func addRequestToFolders(folders []domain.Folder, parentID string, req domain.Re
 	return folders, false
 }
 
-func deleteRequestFromFolders(folders []domain.Folder, id string) ([]domain.Folder, bool) {
+func deleteRequestFromFolders(folders []domain.Folder, id string, depth int) ([]domain.Folder, bool) {
+	if depth > maxFolderDepth {
+		return folders, false
+	}
+
 	for i := range folders {
 		for j, req := range folders[i].Requests {
 			if req.ID == id {
@@ -121,7 +135,7 @@ func deleteRequestFromFolders(folders []domain.Folder, id string) ([]domain.Fold
 			}
 		}
 
-		if updated, found := deleteRequestFromFolders(folders[i].Folders, id); found {
+		if updated, found := deleteRequestFromFolders(folders[i].Folders, id, depth+1); found {
 			folders[i].Folders = updated
 
 			return folders, true
@@ -131,7 +145,11 @@ func deleteRequestFromFolders(folders []domain.Folder, id string) ([]domain.Fold
 	return folders, false
 }
 
-func deleteFolderFromFolders(folders []domain.Folder, id string) ([]domain.Folder, bool) {
+func deleteFolderFromFolders(folders []domain.Folder, id string, depth int) ([]domain.Folder, bool) {
+	if depth > maxFolderDepth {
+		return folders, false
+	}
+
 	for i := range folders {
 		for j, sub := range folders[i].Folders {
 			if sub.ID == id {
@@ -141,7 +159,7 @@ func deleteFolderFromFolders(folders []domain.Folder, id string) ([]domain.Folde
 			}
 		}
 
-		if updated, found := deleteFolderFromFolders(folders[i].Folders, id); found {
+		if updated, found := deleteFolderFromFolders(folders[i].Folders, id, depth+1); found {
 			folders[i].Folders = updated
 
 			return folders, true
@@ -151,7 +169,11 @@ func deleteFolderFromFolders(folders []domain.Folder, id string) ([]domain.Folde
 	return folders, false
 }
 
-func renameFolderInFolders(folders []domain.Folder, id, newName string) bool {
+func renameFolderInFolders(folders []domain.Folder, id, newName string, depth int) bool {
+	if depth > maxFolderDepth {
+		return false
+	}
+
 	for i := range folders {
 		if folders[i].ID == id {
 			folders[i].Name = newName
@@ -159,7 +181,7 @@ func renameFolderInFolders(folders []domain.Folder, id, newName string) bool {
 			return true
 		}
 
-		if renameFolderInFolders(folders[i].Folders, id, newName) {
+		if renameFolderInFolders(folders[i].Folders, id, newName, depth+1) {
 			return true
 		}
 	}
@@ -167,7 +189,11 @@ func renameFolderInFolders(folders []domain.Folder, id, newName string) bool {
 	return false
 }
 
-func renameRequestInFolders(folders []domain.Folder, id, newName string) bool {
+func renameRequestInFolders(folders []domain.Folder, id, newName string, depth int) bool {
+	if depth > maxFolderDepth {
+		return false
+	}
+
 	for i := range folders {
 		for j := range folders[i].Requests {
 			if folders[i].Requests[j].ID == id {
@@ -177,7 +203,7 @@ func renameRequestInFolders(folders []domain.Folder, id, newName string) bool {
 			}
 		}
 
-		if renameRequestInFolders(folders[i].Folders, id, newName) {
+		if renameRequestInFolders(folders[i].Folders, id, newName, depth+1) {
 			return true
 		}
 	}
@@ -185,7 +211,11 @@ func renameRequestInFolders(folders []domain.Folder, id, newName string) bool {
 	return false
 }
 
-func updateRequestInFolders(folders []domain.Folder, req domain.Request) bool {
+func updateRequestInFolders(folders []domain.Folder, req domain.Request, depth int) bool {
+	if depth > maxFolderDepth {
+		return false
+	}
+
 	for i := range folders {
 		for j := range folders[i].Requests {
 			if folders[i].Requests[j].ID == req.ID {
@@ -195,7 +225,7 @@ func updateRequestInFolders(folders []domain.Folder, req domain.Request) bool {
 			}
 		}
 
-		if updateRequestInFolders(folders[i].Folders, req) {
+		if updateRequestInFolders(folders[i].Folders, req, depth+1) {
 			return true
 		}
 	}
@@ -361,7 +391,7 @@ func (s *OrganizationService) CreateFolder(orgID, projID, collID, parentFolderID
 			return nil
 		}
 
-		if updated, found := addFolderToFolders(coll.Folders, parentFolderID, newFolder); found {
+		if updated, found := addFolderToFolders(coll.Folders, parentFolderID, newFolder, 0); found {
 			coll.Folders = updated
 
 			return nil
@@ -390,7 +420,7 @@ func (s *OrganizationService) CreateRequest(orgID, projID, collID, parentFolderI
 			return nil
 		}
 
-		if updated, found := addRequestToFolders(coll.Folders, parentFolderID, req); found {
+		if updated, found := addRequestToFolders(coll.Folders, parentFolderID, req, 0); found {
 			coll.Folders = updated
 
 			return nil
@@ -486,7 +516,7 @@ func (s *OrganizationService) DeleteRequest(orgID, projID, collID, id string) er
 			}
 		}
 
-		if updated, found := deleteRequestFromFolders(coll.Folders, id); found {
+		if updated, found := deleteRequestFromFolders(coll.Folders, id, 0); found {
 			coll.Folders = updated
 
 			return nil
@@ -509,7 +539,7 @@ func (s *OrganizationService) DeleteFolder(orgID, projID, collID, folderID strin
 			}
 		}
 
-		if updated, found := deleteFolderFromFolders(coll.Folders, folderID); found {
+		if updated, found := deleteFolderFromFolders(coll.Folders, folderID, 0); found {
 			coll.Folders = updated
 
 			return nil
@@ -602,7 +632,7 @@ func (s *OrganizationService) RenameFolder(orgID, projID, collID, folderID, newN
 			}
 		}
 
-		if renameFolderInFolders(coll.Folders, folderID, newName) {
+		if renameFolderInFolders(coll.Folders, folderID, newName, 0) {
 			return nil
 		}
 
@@ -627,7 +657,7 @@ func (s *OrganizationService) RenameRequest(orgID, projID, collID, reqID, newNam
 			}
 		}
 
-		if renameRequestInFolders(coll.Folders, reqID, newName) {
+		if renameRequestInFolders(coll.Folders, reqID, newName, 0) {
 			return nil
 		}
 
@@ -648,7 +678,7 @@ func (s *OrganizationService) UpdateRequest(orgID, projID, collID string, req do
 			}
 		}
 
-		if updateRequestInFolders(coll.Folders, req) {
+		if updateRequestInFolders(coll.Folders, req, 0) {
 			return nil
 		}
 

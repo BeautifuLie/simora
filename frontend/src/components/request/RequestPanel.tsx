@@ -16,6 +16,7 @@ import { GrpcPanel } from './GrpcPanel';
 import { KafkaPanel } from './KafkaPanel';
 import { SqsPanel } from './SqsPanel';
 import { RequestNameBar } from './RequestNameBar';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
@@ -280,6 +281,7 @@ function KVRow({
                                   .replace(/&/g, '&amp;')
                                   .replace(/</g, '&lt;')
                                   .replace(/>/g, '&gt;')
+                                  .replace(/"/g, '&quot;')
                                   .replace(
                                       /(\{\{[^}]*\}\})/g,
                                       '<mark style="background:rgba(251,191,36,0.18);color:var(--yellow);border-radius:2px">$1</mark>'
@@ -1256,6 +1258,7 @@ function GraphQLPanel() {
                                       .replace(/&/g, '&amp;')
                                       .replace(/</g, '&lt;')
                                       .replace(/>/g, '&gt;')
+                                      .replace(/"/g, '&quot;')
                                       .replace(
                                           /(\{\{[^}]*\}\})/g,
                                           '<mark style="background:rgba(251,191,36,0.18);color:var(--yellow);border-radius:2px">$1</mark>'
@@ -1545,19 +1548,25 @@ export function RequestPanel() {
     if (editing.protocol === 'grpc')
         return (
             <div className="flex flex-col h-full" style={{ background: 'var(--bg-1)' }}>
-                <GrpcPanel />
+                <ErrorBoundary label="gRPC panel">
+                    <GrpcPanel />
+                </ErrorBoundary>
             </div>
         );
     if (editing.protocol === 'kafka')
         return (
             <div className="flex flex-col h-full" style={{ background: 'var(--bg-1)' }}>
-                <KafkaPanel />
+                <ErrorBoundary label="Kafka panel">
+                    <KafkaPanel />
+                </ErrorBoundary>
             </div>
         );
     if (editing.protocol === 'sqs')
         return (
             <div className="flex flex-col h-full" style={{ background: 'var(--bg-1)' }}>
-                <SqsPanel />
+                <ErrorBoundary label="SQS panel">
+                    <SqsPanel />
+                </ErrorBoundary>
             </div>
         );
     if (editing.protocol === 'graphql') return <GraphQLPanel />;

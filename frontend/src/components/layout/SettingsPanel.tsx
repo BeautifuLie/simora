@@ -519,6 +519,7 @@ function RequestSection({
 
 function AboutSection() {
     const [version, setVersion] = React.useState('...');
+    const settingsError = useAppStore(s => s.settingsError);
 
     React.useEffect(() => {
         GetVersion()
@@ -528,6 +529,23 @@ function AboutSection() {
 
     return (
         <div className="flex flex-col gap-5">
+            {settingsError && (
+                <div
+                    className="rounded-[var(--r-md)] p-3"
+                    style={{
+                        background:
+                            'var(--yellow-dim, color-mix(in srgb, #f59e0b 12%, transparent))',
+                        border: '1px solid color-mix(in srgb, #f59e0b 40%, transparent)',
+                        fontSize: 12,
+                        color: 'var(--text-1)',
+                    }}
+                >
+                    <span style={{ fontWeight: 600, color: '#f59e0b' }}>
+                        Settings failed to load.{' '}
+                    </span>
+                    Defaults are in use. Error: {settingsError}
+                </div>
+            )}
             {/* Hero */}
             <div className="flex flex-col items-center gap-3 py-6">
                 <img src={logo} alt="Simora" style={{ width: 60, height: 60, borderRadius: 14 }} />
