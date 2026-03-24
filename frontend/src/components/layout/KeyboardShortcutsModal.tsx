@@ -84,6 +84,10 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
         ],
     },
     {
+        title: 'Response',
+        shortcuts: [{ keys: [mod, 'F'], label: 'Search in response body' }],
+    },
+    {
         title: 'Editor',
         shortcuts: [
             { keys: ['F2'], label: 'Rename item' },

@@ -154,6 +154,21 @@ function BodyTab({ body }: { body: string }) {
         if (showSearch) searchRef.current?.focus();
     }, [showSearch]);
 
+    React.useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+                e.preventDefault();
+                setShowSearch(true);
+            }
+            if (e.key === 'Escape' && showSearch) {
+                setShowSearch(false);
+                setSearch('');
+            }
+        };
+        document.addEventListener('keydown', handler);
+        return () => document.removeEventListener('keydown', handler);
+    }, [showSearch]);
+
     const isJson = React.useMemo(() => {
         try {
             JSON.parse(body);
