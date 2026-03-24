@@ -274,6 +274,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     bgPreset: 'midnight',
     customBgDark: '#101116',
     customBgLight: '#e8eaf5',
+    crashReporterEnabled: false,
 };
 
 // ── URL helpers ────────────────────────────────────────────────────────────

@@ -601,6 +601,18 @@ function RequestSection({
             <SectionCard title="Cookie jar">
                 <CookieManager />
             </SectionCard>
+
+            <SectionCard title="Diagnostics">
+                <SettingRow
+                    label="Crash reporter"
+                    hint="Log uncaught errors to a local file — no data is sent externally"
+                >
+                    <Toggle
+                        checked={settings.crashReporterEnabled}
+                        onChange={v => update({ crashReporterEnabled: v })}
+                    />
+                </SettingRow>
+            </SectionCard>
         </div>
     );
 }

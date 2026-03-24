@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in crash reporter: enable in Settings → Diagnostics to capture uncaught JS errors as local log files (`~/.config/simora/crashes/`); a dismissible banner appears on the next launch when a crash log is found
 - Auto-update check: 3 seconds after launch the app silently queries the GitHub releases API; if a newer version is available a green "↑ vX.Y.Z" link appears in the status bar
 - Resizable response panel now persists its split position across sessions (`autoSaveId`); added explicit `maxSize={72}` constraint so neither panel can be collapsed below 28%
 - WebSocket protocol support: connect to `ws://` / `wss://` endpoints, send an optional initial message, collect messages (configurable limit and idle timeout), and view results in the response panel

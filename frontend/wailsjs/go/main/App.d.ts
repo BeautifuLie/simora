@@ -4,6 +4,12 @@ import {main} from '../models';
 
 export function CheckForUpdate():Promise<main.UpdateInfo>;
 
+export function ClearCrashReports():Promise<void>;
+
+export function GetCrashReport():Promise<string>;
+
 export function GetVersion():Promise<string>;
+
+export function ReportCrash(arg1:string):Promise<void>;
 
 export function SaveFile(arg1:string,arg2:string):Promise<void>;

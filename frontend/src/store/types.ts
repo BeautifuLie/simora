@@ -264,4 +264,5 @@ export interface AppSettings {
     bgPreset: string; // preset id or 'custom', default: 'midnight' for dark / 'lavender' for light
     customBgDark: string; // custom dark bg-0 hex
     customBgLight: string; // custom light bg-0 hex
+    crashReporterEnabled: boolean; // opt-in local crash log
 }
