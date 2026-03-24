@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GraphQL schema introspection: "Schema" button runs an introspection query and shows available Query/Mutation/Subscription fields in a dedicated tab
 - GraphQL variables panel validates JSON inline and shows parse errors
 - GraphQL error formatting in the response panel now shows each error message individually
+- Collection-level variables: per-collection key/value pairs that are substituted in requests, with lower priority than environment variables
+- Duplicate folder: "Duplicate" context menu item for folders, with full recursive backend persistence
+- Kafka consumer group support: when a Group ID is set, offsets are committed to Kafka enabling resumable consumption; configurable Max Messages field added to consume tab
+- Request chaining: use `{{chain:RequestName.field}}` in any request field to reference the last response of a named request
+- gRPC Schema tab: "Fetch Descriptor" button shows service methods with input/output message fields via server reflection
 
 ## [v0.1.1] - 2026-03-24
 

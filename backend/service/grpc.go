@@ -55,3 +55,18 @@ func (s *GrpcService) ListMethods(server, serviceName string, useTLS bool) ([]st
 
 	return methods, nil
 }
+
+// DescribeService fetches the full descriptor tree for a service via reflection.
+// Returns a JSON string containing the service name, all methods, and their
+// input/output message fields.
+func (s *GrpcService) DescribeService(server, serviceName string, useTLS bool) (string, error) {
+	ctx, cancel := context.WithTimeout(s.appCtx.Get(), grpcServiceTimeout)
+	defer cancel()
+
+	desc, err := transport.GrpcDescribeService(ctx, server, serviceName, useTLS)
+	if err != nil {
+		return "", fmt.Errorf("describe service: %w", err)
+	}
+
+	return desc, nil
+}

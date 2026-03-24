@@ -496,12 +496,292 @@ function DiscoverDropdown({
     );
 }
 
+// ── Schema tab — protobuf descriptor tree ─────────────────────────────────
+
+interface GrpcFieldInfo {
+    name: string;
+    type: string;
+    repeated: boolean;
+    optional: boolean;
+}
+
+interface GrpcMethodInfo {
+    name: string;
+    clientStreaming: boolean;
+    serverStreaming: boolean;
+    inputType: string;
+    outputType: string;
+    inputFields: GrpcFieldInfo[];
+    outputFields: GrpcFieldInfo[];
+}
+
+interface GrpcServiceDescriptor {
+    service: string;
+    methods: GrpcMethodInfo[];
+}
+
+function streamingLabel(m: GrpcMethodInfo): string | null {
+    if (m.clientStreaming && m.serverStreaming) return 'bidi-stream';
+    if (m.clientStreaming) return 'client-stream';
+    if (m.serverStreaming) return 'server-stream';
+    return null;
+}
+
+function FieldList({ fields, label }: { fields: GrpcFieldInfo[]; label: string }) {
+    if (fields.length === 0) return null;
+    return (
+        <div style={{ marginTop: 4 }}>
+            <span
+                style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: 'var(--text-2)',
+                    display: 'block',
+                    marginBottom: 3,
+                }}
+            >
+                {label}
+            </span>
+            {fields.map(f => (
+                <div
+                    key={f.name}
+                    className="flex items-center gap-2"
+                    style={{ padding: '2px 0', fontSize: 11.5 }}
+                >
+                    <span style={{ color: 'var(--accent)', fontFamily: 'monospace' }}>
+                        {f.name}
+                    </span>
+                    <span style={{ color: 'var(--text-2)', fontSize: 10 }}>{f.type}</span>
+                    {f.repeated && (
+                        <span
+                            style={{
+                                fontSize: 9,
+                                color: 'var(--yellow)',
+                                border: '1px solid var(--yellow)',
+                                borderRadius: 2,
+                                padding: '0 3px',
+                            }}
+                        >
+                            []
+                        </span>
+                    )}
+                    {f.optional && (
+                        <span style={{ fontSize: 10, color: 'var(--text-2)' }}>optional</span>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function SchemaTab() {
+    const editing = useAppStore(selectEditing);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [desc, setDesc] = useState<GrpcServiceDescriptor | null>(null);
+    const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+    if (!editing) return null;
+
+    const { server, service, tls } = editing.grpc;
+    const canFetch = server.trim() !== '' && service.trim() !== '';
+
+    const fetchDesc = async () => {
+        if (!canFetch) return;
+        setLoading(true);
+        setError(null);
+        try {
+            const json = isWails
+                ? await GrpcService.DescribeService(server, service, tls)
+                : JSON.stringify({ service, methods: [] });
+            setDesc(JSON.parse(json));
+            setExpanded(new Set());
+        } catch (e) {
+            setError(e instanceof Error ? e.message : String(e));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const toggle = (name: string) =>
+        setExpanded(prev => {
+            const next = new Set(prev);
+            next.has(name) ? next.delete(name) : next.add(name);
+            return next;
+        });
+
+    return (
+        <div className="flex flex-col h-full overflow-hidden">
+            {/* Fetch bar */}
+            <div
+                className="flex items-center gap-2 shrink-0"
+                style={{
+                    padding: '8px 12px',
+                    borderBottom: '1px solid var(--border-0)',
+                }}
+            >
+                <button
+                    className="flex items-center gap-1.5 rounded-[var(--r-sm)] cursor-pointer transition-all duration-150 hover:brightness-110 disabled:opacity-40"
+                    style={{
+                        padding: '4px 12px',
+                        background: 'var(--purple)',
+                        color: '#fff',
+                        fontSize: 12,
+                        fontWeight: 600,
+                    }}
+                    onClick={fetchDesc}
+                    disabled={!canFetch || loading}
+                >
+                    {loading ? (
+                        <Loader2 style={{ width: 12, height: 12 }} className="animate-spin" />
+                    ) : (
+                        <Search style={{ width: 12, height: 12 }} />
+                    )}
+                    Fetch Descriptor
+                </button>
+                {!canFetch && (
+                    <span style={{ fontSize: 11, color: 'var(--text-2)' }}>
+                        Fill in server and service first
+                    </span>
+                )}
+            </div>
+
+            {/* Results */}
+            <div className="flex-1 overflow-y-auto" style={{ padding: '8px 12px' }}>
+                {error && (
+                    <div
+                        style={{
+                            padding: '8px 12px',
+                            borderRadius: 'var(--r-sm)',
+                            background: 'color-mix(in srgb, var(--red) 12%, transparent)',
+                            border: '1px solid color-mix(in srgb, var(--red) 30%, transparent)',
+                            color: 'var(--red)',
+                            fontSize: 12,
+                        }}
+                    >
+                        {error}
+                    </div>
+                )}
+
+                {desc && (
+                    <>
+                        <div
+                            style={{
+                                fontSize: 11,
+                                color: 'var(--text-2)',
+                                marginBottom: 8,
+                                fontFamily: 'monospace',
+                            }}
+                        >
+                            {desc.service}
+                        </div>
+
+                        {desc.methods.map(m => {
+                            const isOpen = expanded.has(m.name);
+                            const streamTag = streamingLabel(m);
+                            return (
+                                <div
+                                    key={m.name}
+                                    style={{
+                                        marginBottom: 4,
+                                        borderRadius: 'var(--r-sm)',
+                                        border: '1px solid var(--border-1)',
+                                        overflow: 'hidden',
+                                    }}
+                                >
+                                    <button
+                                        className="w-full flex items-center gap-2 cursor-pointer hover:bg-[var(--bg-3)] transition-colors"
+                                        style={{ padding: '7px 10px', textAlign: 'left' }}
+                                        onClick={() => toggle(m.name)}
+                                    >
+                                        <ChevronRight
+                                            style={{
+                                                width: 11,
+                                                height: 11,
+                                                color: 'var(--text-2)',
+                                                flexShrink: 0,
+                                                transform: isOpen ? 'rotate(90deg)' : 'none',
+                                                transition: 'transform 150ms',
+                                            }}
+                                        />
+                                        <span
+                                            style={{
+                                                fontSize: 12.5,
+                                                fontFamily: 'monospace',
+                                                color: 'var(--purple)',
+                                                flex: 1,
+                                            }}
+                                        >
+                                            {m.name}
+                                        </span>
+                                        {streamTag && (
+                                            <span
+                                                style={{
+                                                    fontSize: 9,
+                                                    fontWeight: 600,
+                                                    padding: '1px 5px',
+                                                    borderRadius: 3,
+                                                    background:
+                                                        'color-mix(in srgb, var(--purple) 15%, transparent)',
+                                                    color: 'var(--purple)',
+                                                    border: '1px solid color-mix(in srgb, var(--purple) 30%, transparent)',
+                                                }}
+                                            >
+                                                {streamTag}
+                                            </span>
+                                        )}
+                                    </button>
+
+                                    {isOpen && (
+                                        <div
+                                            style={{
+                                                padding: '8px 12px 10px',
+                                                borderTop: '1px solid var(--border-0)',
+                                                background: 'var(--bg-0)',
+                                            }}
+                                        >
+                                            <FieldList
+                                                fields={m.inputFields}
+                                                label={`→ ${m.inputType}`}
+                                            />
+                                            <FieldList
+                                                fields={m.outputFields}
+                                                label={`← ${m.outputType}`}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </>
+                )}
+
+                {!desc && !error && !loading && (
+                    <div
+                        style={{
+                            textAlign: 'center',
+                            paddingTop: 40,
+                            fontSize: 12,
+                            color: 'var(--text-2)',
+                        }}
+                    >
+                        Click "Fetch Descriptor" to load the service schema
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // ── Tabs config ───────────────────────────────────────────────────────────
 
 const GRPC_TABS = [
     { id: 'message', label: 'Message' },
     { id: 'metadata', label: 'Metadata' },
     { id: 'options', label: 'Options' },
+    { id: 'schema', label: 'Schema' },
 ];
 
 // ── GrpcPanel ─────────────────────────────────────────────────────────────
@@ -523,7 +803,8 @@ export function GrpcPanel() {
     const activeTab =
         editing.activeTab === 'message' ||
         editing.activeTab === 'metadata' ||
-        editing.activeTab === 'options'
+        editing.activeTab === 'options' ||
+        editing.activeTab === 'schema'
             ? editing.activeTab
             : 'message';
 
@@ -730,6 +1011,7 @@ export function GrpcPanel() {
                 {activeTab === 'message' && <MessageTab />}
                 {activeTab === 'metadata' && <MetadataTable />}
                 {activeTab === 'options' && <OptionsTab />}
+                {activeTab === 'schema' && <SchemaTab />}
             </div>
         </>
     );
