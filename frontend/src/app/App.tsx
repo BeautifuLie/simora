@@ -299,14 +299,18 @@ export default function App() {
                     <TabBar />
 
                     {hasActiveTab ? (
-                        <ResizablePanelGroup direction="horizontal" className="flex-1">
-                            <ResizablePanel defaultSize={45} minSize={28}>
+                        <ResizablePanelGroup
+                            direction="horizontal"
+                            className="flex-1"
+                            autoSaveId="main-split"
+                        >
+                            <ResizablePanel defaultSize={45} minSize={28} maxSize={72}>
                                 <ErrorBoundary label="Request panel">
                                     <RequestPanel />
                                 </ErrorBoundary>
                             </ResizablePanel>
                             <ResizableHandle />
-                            <ResizablePanel defaultSize={55} minSize={28}>
+                            <ResizablePanel defaultSize={55} minSize={28} maxSize={72}>
                                 <ErrorBoundary label="Response panel">
                                     <ResponsePanel />
                                 </ErrorBoundary>
