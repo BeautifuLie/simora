@@ -1,9 +1,15 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Plus, Layers, ArrowRight } from 'lucide-react';
+import { Search, Plus, Layers, ArrowRight, Clock } from 'lucide-react';
 import { cn, shortcut } from '@/lib/utils';
 import { MethodBadge } from '@/components/ui/badge';
-import { useAppStore, type Request, type HttpMethod, type ActivePath } from '@/store/app';
+import {
+    useAppStore,
+    type Request,
+    type HttpMethod,
+    type ActivePath,
+    type RecentRequest,
+} from '@/store/app';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -70,6 +76,49 @@ function Highlighted({ text, query }: { text: string; query: string }) {
     return <>{text}</>;
 }
 
+// ── Recent helpers ────────────────────────────────────────────────────────
+
+function findRequestById(
+    organizations: ReturnType<typeof useAppStore.getState>['organizations'],
+    requestId: string | undefined
+): Request | null {
+    if (!requestId) return null;
+    for (const org of organizations) {
+        for (const proj of org.projects ?? []) {
+            for (const col of proj.collections ?? []) {
+                for (const req of col.requests ?? []) {
+                    if (req.id === requestId) return req;
+                }
+                for (const fld of col.folders ?? []) {
+                    for (const req of fld.requests ?? []) {
+                        if (req.id === requestId) return req;
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+function RecentItem({ entry, onActivate }: { entry: RecentRequest; onActivate: () => void }) {
+    return (
+        <div
+            className="flex items-center gap-3 rounded-[var(--r-sm)] cursor-pointer hover:bg-[var(--bg-2)] transition-colors duration-75"
+            style={{ padding: '6px 10px' }}
+            onClick={onActivate}
+        >
+            <Clock style={{ width: 11, height: 11, color: 'var(--text-2)', flexShrink: 0 }} />
+            <MethodBadge method={entry.method as HttpMethod} compact />
+            <span
+                className="flex-1 truncate"
+                style={{ fontSize: 'var(--text-base)', color: 'var(--text-1)' }}
+            >
+                {entry.url || entry.name}
+            </span>
+        </div>
+    );
+}
+
 // ── Command palette ───────────────────────────────────────────────────────
 
 export function CommandPalette() {
@@ -79,7 +128,7 @@ export function CommandPalette() {
     const inputRef = React.useRef<HTMLInputElement>(null);
     const listRef = React.useRef<HTMLDivElement>(null);
 
-    const { organizations, openTab, newBlankTab, openEnvPanel } = useAppStore();
+    const { organizations, openTab, newBlankTab, openEnvPanel, recentRequests } = useAppStore();
 
     // Open / close via Cmd+K
     React.useEffect(() => {
@@ -292,6 +341,46 @@ export function CommandPalette() {
 
                 {/* Results */}
                 <div ref={listRef} className="overflow-y-auto flex-1" style={{ padding: 6 }}>
+                    {/* Recent section shown when query is empty */}
+                    {!query && recentRequests.length > 0 && (
+                        <div style={{ marginBottom: 4 }}>
+                            <div
+                                style={{
+                                    padding: '4px 10px 2px',
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    letterSpacing: '0.07em',
+                                    textTransform: 'uppercase',
+                                    color: 'var(--text-2)',
+                                }}
+                            >
+                                Recent
+                            </div>
+                            {recentRequests.slice(0, 5).map(r => (
+                                <RecentItem
+                                    key={r.id}
+                                    entry={r}
+                                    onActivate={() => {
+                                        if (r.path) {
+                                            const req = findRequestById(
+                                                organizations,
+                                                r.path.requestId
+                                            );
+                                            if (req) openTab(r.path, req);
+                                        }
+                                        setOpen(false);
+                                    }}
+                                />
+                            ))}
+                            <div
+                                style={{
+                                    height: 1,
+                                    background: 'var(--border-0)',
+                                    margin: '6px 4px',
+                                }}
+                            />
+                        </div>
+                    )}
                     {filtered.length === 0 ? (
                         <div
                             className="flex items-center justify-center py-10"

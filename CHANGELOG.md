@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Kafka consumer group support: when a Group ID is set, offsets are committed to Kafka enabling resumable consumption; configurable Max Messages field added to consume tab
 - Request chaining: use `{{chain:RequestName.field}}` in any request field to reference the last response of a named request
 - gRPC Schema tab: "Fetch Descriptor" button shows service methods with input/output message fields via server reflection
+- Recent requests history: last 20 sent requests shown in Command Palette (⌘K) when search is empty
 
 ## [v0.1.1] - 2026-03-24
 
