@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Cmd/Ctrl+D` keyboard shortcut to duplicate the active tab
 - `Cmd/Ctrl+F` keyboard shortcut to open search in the response body panel
 - Export collection as Insomnia v4 JSON (in addition to existing Postman v2.1 export)
+- Improved empty collections screen: Lucide icons instead of emoji, merged import cards into one, added keyboard shortcuts hints
 
 ## [v0.1.1] - 2026-03-24
 

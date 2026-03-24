@@ -9,6 +9,8 @@ import {
     Upload,
     Download,
     Copy,
+    Zap,
+    ArrowDownToLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore, type Collection, type Request, type Folder } from '@/store/app';
@@ -551,28 +553,33 @@ function CollectionTile({
 
 // ── Empty state ────────────────────────────────────────────────────────────
 
-const EMPTY_CARDS = [
+const EMPTY_CARDS: {
+    accent: string;
+    Icon: React.FC<{ style?: React.CSSProperties }>;
+    title: string;
+    sub: string;
+    action: 'new' | 'import';
+}[] = [
     {
         accent: '#7c9cf0',
-        icon: '⚡',
+        Icon: ({ style }) => <Zap style={style} />,
         title: 'New collection',
         sub: 'Group requests by feature or service',
         action: 'new',
     },
     {
         accent: '#c084fc',
-        icon: '📥',
-        title: 'Import Postman',
-        sub: 'Bring in existing v2.1 collections',
+        Icon: ({ style }) => <ArrowDownToLine style={style} />,
+        title: 'Import collection',
+        sub: 'Supports Postman v2.1 and Insomnia v4 / v5',
         action: 'import',
     },
-    {
-        accent: '#4ade80',
-        icon: '🔀',
-        title: 'Import Insomnia',
-        sub: 'Works with Insomnia v4 and v5 formats',
-        action: 'import',
-    },
+];
+
+const EMPTY_SHORTCUTS = [
+    { keys: '⌘T', label: 'New tab' },
+    { keys: '⌘K', label: 'Command palette' },
+    { keys: '⌘E', label: 'Environments' },
 ];
 
 function EmptyCollections({ onNew, onImport }: { onNew: () => void; onImport: () => void }) {
@@ -590,10 +597,9 @@ function EmptyCollections({ onNew, onImport }: { onNew: () => void; onImport: ()
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: 22,
                     }}
                 >
-                    ◫
+                    <FolderOpen style={{ width: 22, height: 22, color: '#7c9cf0' }} />
                 </div>
                 <div className="flex flex-col items-center gap-1">
                     <span
@@ -613,8 +619,8 @@ function EmptyCollections({ onNew, onImport }: { onNew: () => void; onImport: ()
             </div>
 
             {/* Action cards */}
-            <div className="flex items-stretch gap-3" style={{ maxWidth: 560, width: '100%' }}>
-                {EMPTY_CARDS.map(({ accent, icon, title, sub, action }) => (
+            <div className="flex items-stretch gap-3" style={{ maxWidth: 400, width: '100%' }}>
+                {EMPTY_CARDS.map(({ accent, Icon, title, sub, action }) => (
                     <button
                         key={title}
                         onClick={action === 'new' ? onNew : onImport}
@@ -651,10 +657,9 @@ function EmptyCollections({ onNew, onImport }: { onNew: () => void; onImport: ()
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: 15,
                             }}
                         >
-                            {icon}
+                            <Icon style={{ width: 15, height: 15, color: accent }} />
                         </div>
 
                         {/* Text */}
@@ -674,6 +679,32 @@ function EmptyCollections({ onNew, onImport }: { onNew: () => void; onImport: ()
                             </span>
                         </div>
                     </button>
+                ))}
+            </div>
+
+            {/* Keyboard hints */}
+            <div className="flex items-center gap-4">
+                {EMPTY_SHORTCUTS.map(({ keys, label }) => (
+                    <div
+                        key={keys}
+                        className="flex items-center gap-1.5"
+                        style={{ fontSize: 11, color: 'var(--text-2)' }}
+                    >
+                        <kbd
+                            style={{
+                                padding: '1px 6px',
+                                borderRadius: 4,
+                                background: 'var(--bg-3)',
+                                border: '1px solid var(--border-2)',
+                                fontSize: 10.5,
+                                fontFamily: 'inherit',
+                                color: 'var(--text-1)',
+                            }}
+                        >
+                            {keys}
+                        </kbd>
+                        <span>{label}</span>
+                    </div>
                 ))}
             </div>
         </div>
