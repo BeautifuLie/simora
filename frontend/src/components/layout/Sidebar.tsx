@@ -18,6 +18,8 @@ import {
     Pencil,
     Trash2,
     Copy,
+    Braces,
+    X,
 } from 'lucide-react';
 import { cn, shortcut } from '@/lib/utils';
 import {
@@ -27,6 +29,7 @@ import {
     type Collection,
     type Request,
     type Protocol,
+    type EnvVariable,
     selectActivePath,
 } from '@/store/app';
 import { MethodBadge } from '@/components/ui/badge';
@@ -1261,6 +1264,111 @@ function FolderItem({
 
 // ── Collection tree view ────────────────────────────────────────────────────
 
+// ── Collection variables panel ─────────────────────────────────────────────
+
+function CollectionVarsPanel({
+    collectionId,
+    initial,
+}: {
+    collectionId: string;
+    initial: EnvVariable[] | undefined;
+}) {
+    const { setCollectionVariables } = useAppStore();
+    const [rows, setRows] = React.useState<EnvVariable[]>(() => initial ?? []);
+
+    const commit = (next: EnvVariable[]) => {
+        setRows(next);
+        setCollectionVariables(collectionId, next);
+    };
+
+    const updateRow = (idx: number, patch: Partial<EnvVariable>) =>
+        commit(rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+
+    const removeRow = (idx: number) => commit(rows.filter((_, i) => i !== idx));
+
+    const addRow = () => commit([...rows, { key: '', value: '', enabled: true }]);
+
+    return (
+        <div
+            style={{
+                borderBottom: '1px solid var(--border-0)',
+                background: 'color-mix(in srgb, var(--accent) 4%, var(--bg-1))',
+            }}
+        >
+            {/* Header */}
+            <div
+                style={{
+                    padding: '5px 10px',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: 'var(--accent)',
+                }}
+            >
+                Collection Variables
+            </div>
+
+            {/* Rows */}
+            {rows.map((row, idx) => (
+                <div
+                    key={idx}
+                    className="flex items-center gap-1"
+                    style={{ padding: '2px 8px 2px 10px' }}
+                >
+                    <input
+                        className="bg-transparent outline-none"
+                        style={{
+                            width: 80,
+                            fontSize: 11.5,
+                            fontFamily: "'JetBrains Mono Variable', monospace",
+                            color: row.enabled ? 'var(--text-0)' : 'var(--text-2)',
+                        }}
+                        placeholder="key"
+                        value={row.key}
+                        onChange={e => updateRow(idx, { key: e.target.value })}
+                        spellCheck={false}
+                    />
+                    <span style={{ color: 'var(--border-2)', fontSize: 11 }}>:</span>
+                    <input
+                        className="bg-transparent outline-none flex-1"
+                        style={{
+                            fontSize: 11.5,
+                            fontFamily: "'JetBrains Mono Variable', monospace",
+                            color: row.enabled ? 'var(--accent)' : 'var(--text-2)',
+                        }}
+                        placeholder="value"
+                        value={row.value}
+                        onChange={e => updateRow(idx, { value: e.target.value })}
+                        spellCheck={false}
+                    />
+                    <button
+                        className="flex items-center justify-center rounded cursor-pointer transition-opacity opacity-40 hover:opacity-100"
+                        style={{ width: 16, height: 16, color: 'var(--text-2)', flexShrink: 0 }}
+                        onClick={() => removeRow(idx)}
+                    >
+                        <X style={{ width: 10, height: 10 }} />
+                    </button>
+                </div>
+            ))}
+
+            {/* Add row */}
+            <button
+                className="flex items-center gap-1 cursor-pointer transition-colors hover:text-[var(--accent)]"
+                style={{
+                    padding: '5px 10px 6px',
+                    fontSize: 11,
+                    color: 'var(--text-2)',
+                }}
+                onClick={addRow}
+            >
+                <Plus style={{ width: 10, height: 10 }} />
+                Add variable
+            </button>
+        </div>
+    );
+}
+
 // ── Add-to-collection menu ─────────────────────────────────────────────────
 
 const ADD_ITEMS: {
@@ -1392,6 +1500,7 @@ function CollectionTreeView({
     const { createRequest, createFolder, setActiveCollection, deleteRequest, moveRequest } =
         useAppStore();
     const [showAddMenu, setShowAddMenu] = React.useState(false);
+    const [showVarsPanel, setShowVarsPanel] = React.useState(false);
     const [search, setSearch] = React.useState('');
     const [newReqId, setNewReqId] = React.useState<string | null>(null);
     const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
@@ -1466,6 +1575,23 @@ function CollectionTreeView({
                         height: 26,
                         flexShrink: 0,
                         color: 'var(--accent)',
+                        background: showVarsPanel ? 'var(--accent-dim)' : 'transparent',
+                        border: showVarsPanel
+                            ? '1px solid color-mix(in srgb, var(--accent) 30%, transparent)'
+                            : '1px solid transparent',
+                    }}
+                    onClick={() => setShowVarsPanel(v => !v)}
+                    title="Collection variables"
+                >
+                    <Braces style={{ width: 13, height: 13 }} />
+                </button>
+                <button
+                    className="flex items-center justify-center rounded cursor-pointer transition-all duration-150 hover:brightness-110"
+                    style={{
+                        width: 26,
+                        height: 26,
+                        flexShrink: 0,
+                        color: 'var(--accent)',
                         background: showAddMenu ? 'var(--accent-dim)' : 'transparent',
                         border: showAddMenu
                             ? '1px solid color-mix(in srgb, var(--accent) 30%, transparent)'
@@ -1480,6 +1606,14 @@ function CollectionTreeView({
 
             {/* Inline add menu — slides in below the header */}
             {showAddMenu && <AddMenu onClose={() => setShowAddMenu(false)} onPick={handlePick} />}
+
+            {/* Collection variables */}
+            {showVarsPanel && (
+                <CollectionVarsPanel
+                    collectionId={collection.id}
+                    initial={(collection as any).variables}
+                />
+            )}
 
             {/* Search */}
             <div className="px-2 pt-2 pb-1 shrink-0">
