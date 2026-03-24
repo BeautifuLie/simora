@@ -17,6 +17,13 @@ const (
 
 	// maxReflectMethods caps the number of methods listed per service.
 	maxReflectMethods = 200
+
+	// maxServerStreamMessages is the maximum number of messages collected from a
+	// server-streaming RPC before the stream is closed.
+	maxServerStreamMessages = 100
+
+	// grpcStreamTimeout is the wall-clock timeout for a full server-streaming RPC.
+	grpcStreamTimeout = 60 * time.Second
 )
 
 // Kafka network timeouts and offset names.
