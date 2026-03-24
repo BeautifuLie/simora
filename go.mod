@@ -10,6 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.42.24
 	github.com/bufbuild/protocompile v0.14.1
 	github.com/google/uuid v1.6.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/hamba/avro/v2 v2.31.0
 	github.com/stretchr/testify v1.11.1
 	github.com/wailsapp/wails/v2 v2.10.1

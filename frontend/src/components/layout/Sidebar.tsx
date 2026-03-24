@@ -15,6 +15,7 @@ import {
     Globe,
     Layers,
     Rss,
+    Wifi,
     Pencil,
     Trash2,
     Copy,
@@ -977,7 +978,9 @@ function RequestItem({
                                   ? 'var(--blue)'
                                   : req.protocol === 'kafka'
                                     ? 'var(--orange)'
-                                    : 'var(--green)',
+                                    : req.protocol === 'websocket'
+                                      ? '#22c55e'
+                                      : 'var(--green)',
                         background:
                             req.protocol === 'graphql'
                                 ? 'color-mix(in srgb, var(--purple) 15%, transparent)'
@@ -994,7 +997,9 @@ function RequestItem({
                           ? 'gRPC'
                           : req.protocol === 'kafka'
                             ? 'KFK'
-                            : 'SQS'}
+                            : req.protocol === 'websocket'
+                              ? 'WS'
+                              : 'SQS'}
                 </span>
             )}
             {renaming ? (
@@ -1428,6 +1433,12 @@ const ADD_ITEMS: {
         color: 'var(--orange)',
     },
     { id: 'sqs', label: 'SQS', icon: ({ style }) => <Rss style={style} />, color: 'var(--green)' },
+    {
+        id: 'websocket',
+        label: 'WebSocket',
+        icon: ({ style }) => <Wifi style={style} />,
+        color: '#22c55e',
+    },
 ];
 
 function AddMenu({

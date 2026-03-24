@@ -25,6 +25,7 @@ import {
 import { GrpcPanel } from './GrpcPanel';
 import { KafkaPanel } from './KafkaPanel';
 import { SqsPanel } from './SqsPanel';
+import { WsPanel } from './WsPanel';
 import { RequestNameBar } from './RequestNameBar';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
@@ -1909,6 +1910,14 @@ export function RequestPanel() {
             <div className="flex flex-col h-full" style={{ background: 'var(--bg-1)' }}>
                 <ErrorBoundary label="SQS panel">
                     <SqsPanel />
+                </ErrorBoundary>
+            </div>
+        );
+    if (editing.protocol === 'websocket')
+        return (
+            <div className="flex flex-col h-full" style={{ background: 'var(--bg-1)' }}>
+                <ErrorBoundary label="WebSocket panel">
+                    <WsPanel />
                 </ErrorBoundary>
             </div>
         );

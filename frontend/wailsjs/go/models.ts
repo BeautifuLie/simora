@@ -802,5 +802,27 @@ export namespace transport {
 		}
 	}
 
+export class WsConnectRequest {
+	URL: string;
+	Headers: Record<string, string>;
+	Message: string;
+	MaxMessages: number;
+	IdleTimeout: number;
+	TLSInsecure: boolean;
+
+	static createFrom(source: any = {}) {
+		return new WsConnectRequest(source);
+	}
+
+	constructor(source: any = {}) {
+		if ('string' === typeof source) source = JSON.parse(source);
+		this.URL = source["URL"];
+		this.Headers = source["Headers"];
+		this.Message = source["Message"];
+		this.MaxMessages = source["MaxMessages"];
+		this.IdleTimeout = source["IdleTimeout"];
+		this.TLSInsecure = source["TLSInsecure"];
+	}
 }
 
+}
