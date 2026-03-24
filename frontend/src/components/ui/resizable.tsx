@@ -36,9 +36,8 @@ export function ResizableHandle({ className, ...props }: PanelResizeHandleProps)
             {/* Grip dots */}
             <div
                 className={cn(
-                    'flex items-center justify-center rounded-sm z-10',
+                    'flex flex-col items-center justify-center rounded-sm z-10',
                     'opacity-0 group-hover:opacity-100 transition-opacity duration-150',
-                    'data-[panel-group-direction=horizontal]:flex-col',
                     'bg-[var(--bg-2)] border border-[var(--border-1)]'
                 )}
                 style={{ width: 8, height: 24, gap: 3, padding: '4px 0' }}
