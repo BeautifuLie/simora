@@ -1057,7 +1057,8 @@ function FolderItem({
     selectedIds?: Set<string>;
     onToggleSelect?: (_id: string, _e: React.MouseEvent) => void;
 }) {
-    const { renameFolder, deleteFolder, moveRequest, reorderFolder } = useAppStore();
+    const { renameFolder, deleteFolder, duplicateFolder, moveRequest, reorderFolder } =
+        useAppStore();
     const [open, setOpen] = React.useState(true);
     const [renaming, setRenaming] = React.useState(false);
     const [dropOver, setDropOver] = React.useState(false);
@@ -1071,6 +1072,11 @@ function FolderItem({
             icon: ({ style }) => <Pencil style={style} />,
             action: () => setRenaming(true),
             shortcut: 'F2',
+        },
+        {
+            label: 'Duplicate',
+            icon: ({ style }) => <Copy style={style} />,
+            action: () => duplicateFolder(orgId, projectId, collectionId, folder.id),
         },
         { label: 'divider' as any, action: () => {}, divider: true },
         {
