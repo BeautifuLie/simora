@@ -648,8 +648,8 @@ export function CollectionsHome() {
         e.target.value = '';
         const text = await file.text();
         const { data: result, error: importError } = parseCollection(text);
-        if (importError) {
-            alert(importError);
+        if (importError || !result) {
+            alert(importError ?? 'Unknown import error');
             return;
         }
         const orgId = org?.id ?? '';
