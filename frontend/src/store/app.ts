@@ -98,6 +98,9 @@ interface AppState {
     activeEnvId: string | null;
     envPanelOpen: boolean;
 
+    // Request chaining — maps request name → last parsed response body
+    chainCache: Record<string, unknown>;
+
     // Actions — data
     loadOrganizations: () => Promise<void>;
 
@@ -149,6 +152,7 @@ interface AppState {
     // Actions — send / save
     sendRequest: () => Promise<void>;
     saveRequest: () => Promise<void>;
+    setChainValue: (_name: string, _value: unknown) => void;
 
     // Actions — organizations
     createOrganization: (_name: string) => void;
@@ -750,6 +754,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     environments: MOCK_ENVS,
     activeEnvId: 'env1',
     envPanelOpen: false,
+    chainCache: {},
 
     settings: DEFAULT_SETTINGS,
     settingsPanelOpen: false,
@@ -1040,8 +1045,8 @@ export const useAppStore = create<AppState>((set, get) => ({
             return undefined;
         })();
 
-        // Convenience wrapper that applies both env and collection vars.
-        const rv = (text: string) => resolveVars(text, activeEnv, colVars);
+        // Convenience wrapper that applies env, collection, and chain vars.
+        const rv = (text: string) => resolveVars(text, activeEnv, colVars, s.chainCache);
 
         set(st =>
             patchActiveTab(st, { responseLoading: true, responseError: null, response: null })
@@ -1279,6 +1284,18 @@ export const useAppStore = create<AppState>((set, get) => ({
             const res = isWails
                 ? await RequestService.ExecuteRequest(method, url, body, headersMap)
                 : MOCK_RESPONSE;
+
+            // Store response in chain cache keyed by request name.
+            const reqName = editing.name;
+            if (reqName) {
+                let chainValue: unknown = res.body;
+                try {
+                    chainValue = JSON.parse(res.body);
+                } catch {
+                    // keep as string
+                }
+                set(st => ({ chainCache: { ...st.chainCache, [reqName]: chainValue } }));
+            }
 
             // Run tests (in isolated Web Worker with 3 s timeout)
             set(st =>
@@ -2182,6 +2199,9 @@ export const useAppStore = create<AppState>((set, get) => ({
             ).catch(console.error);
         }
     },
+
+    setChainValue: (name, value) =>
+        set(st => ({ chainCache: { ...st.chainCache, [name]: value } })),
 
     // ── Environments ──────────────────────────────────────────────────────────
     setActiveEnv: id => set({ activeEnvId: id }),
