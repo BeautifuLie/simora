@@ -1,0 +1,118 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - 'v*'
+
+jobs:
+    build:
+        name: Build ${{ matrix.name }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                include:
+                    - name: Linux (amd64)
+                      os: ubuntu-22.04
+                      platform: linux/amd64
+                      artifact: simora
+
+                    - name: macOS (universal)
+                      os: macos-latest
+                      platform: darwin/universal
+                      artifact: simora.app
+
+                    - name: Windows (amd64)
+                      os: windows-latest
+                      platform: windows/amd64
+                      artifact: simora.exe
+
+        steps:
+            - name: 📥 Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: 🔧 Setup Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: 1.26
+
+            - name: 🧰 Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 18
+
+            - name: 📦 Install Wails
+              run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+            - name: 🐧 Install Linux dependencies
+              if: runner.os == 'Linux'
+              run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+
+            - name: 🗃️ Cache node_modules
+              uses: actions/cache@v4
+              with:
+                  path: frontend/node_modules
+                  key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
+
+            - name: 🐿️ Cache Go modules
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cache/go-build
+                      ~/go/pkg/mod
+                  key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+            - name: 📥 Install frontend deps
+              run: make deps
+
+            - name: 🏗 Build
+              run: wails build -platform ${{ matrix.platform }} -ldflags "-X main.Version=${{ github.ref_name }}"
+
+            - name: 🗜 Zip macOS app bundle
+              if: runner.os == 'macOS'
+              run: cd build/bin && zip -r simora-darwin-universal.zip simora.app
+
+            - name: 📤 Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: simora-${{ matrix.platform == 'linux/amd64' && 'linux-amd64' || matrix.platform == 'darwin/universal' && 'darwin-universal' || 'windows-amd64' }}
+                  path: ${{ matrix.platform == 'darwin/universal' && 'build/bin/simora-darwin-universal.zip' || format('build/bin/{0}', matrix.artifact) }}
+
+    release:
+        name: Create GitHub Release
+        needs: build
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+
+        steps:
+            - name: 📥 Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: 📦 Download all artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: dist
+
+            - name: 🏷 Rename artifacts
+              run: |
+                  mv dist/simora-linux-amd64/simora   dist/simora-linux-amd64-bin
+                  mv dist/simora-darwin-universal/simora-darwin-universal.zip dist/simora-darwin-universal.zip
+                  mv dist/simora-windows-amd64/simora.exe dist/simora-windows-amd64.exe
+
+            - name: 🚀 Create Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  name: ${{ github.ref_name }}
+                  body: |
+                      See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+                  files: |
+                      dist/simora-linux-amd64-bin
+                      dist/simora-darwin-universal.zip
+                      dist/simora-windows-amd64.exe
+                  draft: false
+                  prerelease: ${{ contains(github.ref_name, '-') }}

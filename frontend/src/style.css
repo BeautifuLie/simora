@@ -1,0 +1,266 @@
+@import 'tailwindcss';
+
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+:root {
+    color-scheme: dark;
+
+    /* Backgrounds — dark midnight with a trace of indigo */
+    --bg-0: #101116; /* deepest: sidebar, window base */
+    --bg-1: #191b24; /* main content area */
+    --bg-2: #212432; /* cards, dropdowns, elevated surfaces */
+    --bg-3: #2b2e3d; /* hover states */
+    --bg-4: #363a4e; /* strong hover, pressed */
+
+    /* Borders */
+    --border-0: rgba(255, 255, 255, 0.05); /* hairline dividers */
+    --border-1: rgba(255, 255, 255, 0.09); /* default card/input borders */
+    --border-2: rgba(255, 255, 255, 0.16); /* strong / focused */
+    --border-focus: #7c9cf0;
+
+    /* Text */
+    --text-0: #f2f2f2; /* primary — headings, active items */
+    --text-1: #8a8a8a; /* secondary — labels, descriptions */
+    --text-2: #505050; /* muted — placeholders, disabled */
+
+    /* Accent */
+    --accent: #7c9cf0;
+    --accent-hover: #99b2ff;
+    --accent-dim: rgba(124, 156, 240, 0.12);
+
+    /* Semantic */
+    --green: #4ade80;
+    --green-dim: rgba(74, 222, 128, 0.12);
+    --red: #f87171;
+    --red-dim: rgba(248, 113, 113, 0.12);
+    --yellow: #fbbf24;
+    --yellow-dim: rgba(251, 191, 36, 0.12);
+    --purple: #c084fc;
+    --purple-dim: rgba(192, 132, 252, 0.12);
+    --orange: #fb923c;
+    --orange-dim: rgba(251, 146, 60, 0.12);
+    --blue: #60a5fa;
+    --blue-dim: rgba(96, 165, 250, 0.12);
+    --gray: #6b7280;
+    --gray-dim: rgba(107, 114, 128, 0.12);
+
+    /* HTTP method colors */
+    --m-get: #4ade80;
+    --m-get-bg: rgba(74, 222, 128, 0.1);
+    --m-post: #60a5fa;
+    --m-post-bg: rgba(96, 165, 250, 0.1);
+    --m-put: #fbbf24;
+    --m-put-bg: rgba(251, 191, 36, 0.1);
+    --m-patch: #c084fc;
+    --m-patch-bg: rgba(192, 132, 252, 0.1);
+    --m-delete: #f87171;
+    --m-delete-bg: rgba(248, 113, 113, 0.1);
+    --m-head: #6b7280;
+    --m-head-bg: rgba(107, 114, 128, 0.1);
+    --m-options: #fb923c;
+    --m-options-bg: rgba(251, 146, 60, 0.1);
+
+    /* Spacing — strict 4px grid */
+    --s-1: 4px;
+    --s-2: 8px;
+    --s-3: 12px;
+    --s-4: 16px;
+    --s-5: 20px;
+    --s-6: 24px;
+    --s-8: 32px;
+
+    /* Typography */
+    --text-sm: 11px;
+    --text-base: 12px;
+    --text-md: 13px;
+
+    /* Radii */
+    --r-sm: 6px;
+    --r-md: 8px;
+    --r-lg: 12px;
+    --r-xl: 16px;
+
+    /* Component dimensions */
+    --sidebar-width: 220px;
+    --titlebar-height: 44px;
+    --toolbar-height: 44px;
+    --statusbar-height: 26px;
+    --input-height: 30px;
+    --btn-height: 28px;
+    --btn-sm-height: 24px;
+}
+
+/* ── Light theme ───────────────────────────────────────────────────────────── */
+[data-theme='light'] {
+    color-scheme: light;
+
+    --bg-0: #e8eaf5; /* base: soft cool lavender */
+    --bg-1: #f2f3fb; /* content: near-white with hint of indigo */
+    --bg-2: #ffffff; /* cards: pure white — max contrast */
+    --bg-3: #e0e3f2; /* hover */
+    --bg-4: #d4d8ec; /* pressed */
+
+    --border-0: rgba(80, 90, 180, 0.07);
+    --border-1: rgba(80, 90, 180, 0.12);
+    --border-2: rgba(80, 90, 180, 0.22);
+    --border-focus: #5b7de0;
+
+    --text-0: #0f1020;
+    --text-1: #4a4e6a;
+    --text-2: #8f93b0;
+
+    --accent: #5b7de0;
+    --accent-hover: #4a6bd0;
+    --accent-dim: rgba(91, 125, 224, 0.12);
+
+    --green: #16a34a;
+    --green-dim: rgba(22, 163, 74, 0.12);
+    --red: #dc2626;
+    --red-dim: rgba(220, 38, 38, 0.12);
+    --yellow: #d97706;
+    --yellow-dim: rgba(217, 119, 6, 0.12);
+    --purple: #9333ea;
+    --purple-dim: rgba(147, 51, 234, 0.12);
+    --orange: #ea580c;
+    --orange-dim: rgba(234, 88, 12, 0.12);
+    --blue: #2563eb;
+    --blue-dim: rgba(37, 99, 235, 0.12);
+    --gray: #6b7280;
+    --gray-dim: rgba(107, 114, 128, 0.12);
+
+    --m-get: #16a34a;
+    --m-get-bg: rgba(22, 163, 74, 0.1);
+    --m-post: #2563eb;
+    --m-post-bg: rgba(37, 99, 235, 0.1);
+    --m-put: #d97706;
+    --m-put-bg: rgba(217, 119, 6, 0.1);
+    --m-patch: #9333ea;
+    --m-patch-bg: rgba(147, 51, 234, 0.1);
+    --m-delete: #dc2626;
+    --m-delete-bg: rgba(220, 38, 38, 0.1);
+    --m-head: #6b7280;
+    --m-head-bg: rgba(107, 114, 128, 0.1);
+    --m-options: #ea580c;
+    --m-options-bg: rgba(234, 88, 12, 0.1);
+}
+
+/* ── Font size ─────────────────────────────────────────────────────────────── */
+[data-fontsize='sm'] {
+    font-size: 11px;
+}
+[data-fontsize='md'] {
+    font-size: 12px;
+}
+[data-fontsize='lg'] {
+    font-size: 14px;
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+}
+[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
+}
+[data-theme='light'] ::selection {
+    background: rgba(91, 125, 224, 0.25);
+}
+
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: var(--bg-0);
+    color: var(--text-0);
+    font-family: 'DM Sans Variable', 'DM Sans', system-ui, sans-serif;
+    font-size: var(--text-base);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbars ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+/* ── Placeholders ──────────────────────────────────────────────────────────── */
+::placeholder {
+    color: var(--text-2);
+    opacity: 1;
+}
+
+/* ── Selection ─────────────────────────────────────────────────────────────── */
+::selection {
+    background: rgba(124, 156, 240, 0.25);
+    color: var(--text-0);
+}
+
+/* ── Drag region (Wails) ───────────────────────────────────────────────────── */
+.drag-region {
+    -webkit-app-region: drag;
+}
+.drag-region * {
+    -webkit-app-region: no-drag;
+}
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+@keyframes fadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(3px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+@keyframes cardIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.animate-tab-in {
+    animation: fadeSlideIn 120ms ease-out;
+}
+.animate-context-in {
+    animation: scaleIn 100ms ease-out;
+}
+.animate-card-in {
+    animation: cardIn 200ms ease-out both;
+}

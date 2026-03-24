@@ -1,0 +1,383 @@
+package transport
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	reflectionpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/dynamicpb"
+)
+
+// GrpcRequest is the payload sent from the frontend for a gRPC invocation.
+type GrpcRequest struct {
+	Server  string            // "host:port"
+	Service string            // "package.ServiceName"
+	Method  string            // "MethodName"
+	Message string            // JSON-encoded request body
+	Meta    map[string]string // gRPC metadata headers
+	TLS     bool
+}
+
+// dialGrpc opens a gRPC client connection with a dial timeout.
+func dialGrpc(server string, useTLS bool) (*grpc.ClientConn, error) {
+	var cred grpc.DialOption
+	if useTLS {
+		cred = grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, ""))
+	} else {
+		cred = grpc.WithTransportCredentials(insecure.NewCredentials())
+	}
+
+	conn, err := grpc.NewClient(server, cred)
+	if err != nil {
+		return nil, fmt.Errorf("dial %s: %w", server, err)
+	}
+
+	return conn, nil
+}
+
+// reflectStream opens a server-reflection stream and returns a send/recv helper.
+func reflectStream(ctx context.Context, conn *grpc.ClientConn) (reflectionpb.ServerReflection_ServerReflectionInfoClient, error) {
+	rc := reflectionpb.NewServerReflectionClient(conn)
+
+	stream, err := rc.ServerReflectionInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("start reflection stream: %w", err)
+	}
+
+	return stream, nil
+}
+
+// reflectFileDescs fetches FileDescriptorProto bytes for a symbol via gRPC reflection.
+func reflectFileDescs(ctx context.Context, conn *grpc.ClientConn, symbol string) ([]*descriptorpb.FileDescriptorProto, error) {
+	stream, err := reflectStream(ctx, conn)
+	if err != nil {
+		return nil, err
+	}
+
+	defer stream.CloseSend()
+
+	req := &reflectionpb.ServerReflectionRequest{
+		MessageRequest: &reflectionpb.ServerReflectionRequest_FileContainingSymbol{
+			FileContainingSymbol: symbol,
+		},
+	}
+
+	if err := stream.Send(req); err != nil {
+		return nil, fmt.Errorf("send reflection request: %w", err)
+	}
+
+	resp, err := stream.Recv()
+	if err != nil {
+		return nil, fmt.Errorf("recv reflection response: %w", err)
+	}
+
+	return parseFileDescResponse(resp)
+}
+
+func parseFileDescResponse(resp *reflectionpb.ServerReflectionResponse) ([]*descriptorpb.FileDescriptorProto, error) {
+	switch m := resp.MessageResponse.(type) {
+	case *reflectionpb.ServerReflectionResponse_FileDescriptorResponse:
+		fds := make([]*descriptorpb.FileDescriptorProto, 0, len(m.FileDescriptorResponse.FileDescriptorProto))
+		for _, raw := range m.FileDescriptorResponse.FileDescriptorProto {
+			fdp := &descriptorpb.FileDescriptorProto{}
+			if err := proto.Unmarshal(raw, fdp); err != nil {
+				return nil, fmt.Errorf("unmarshal file descriptor: %w", err)
+			}
+
+			fds = append(fds, fdp)
+		}
+
+		return fds, nil
+
+	case *reflectionpb.ServerReflectionResponse_ErrorResponse:
+		return nil, fmt.Errorf("reflection error %d: %s",
+			m.ErrorResponse.ErrorCode, m.ErrorResponse.ErrorMessage)
+
+	default:
+		return nil, errors.New("unexpected reflection response type")
+	}
+}
+
+// buildMethodDesc resolves a MethodDescriptor via server reflection.
+func buildMethodDesc(ctx context.Context, conn *grpc.ClientConn, serviceName, methodName string) (protoreflect.MethodDescriptor, error) {
+	reflectCtx, cancel := context.WithTimeout(ctx, grpcReflectTimeout)
+	defer cancel()
+
+	fds, err := reflectFileDescs(reflectCtx, conn, serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(fds) == 0 {
+		return nil, fmt.Errorf("no file descriptors returned for %s", serviceName)
+	}
+
+	fd, err := protodesc.NewFile(fds[0], nil)
+	if err != nil {
+		return nil, fmt.Errorf("build file descriptor: %w", err)
+	}
+
+	return findMethod(fd, serviceName, methodName)
+}
+
+func findMethod(fd protoreflect.FileDescriptor, serviceName, methodName string) (protoreflect.MethodDescriptor, error) {
+	shortName := serviceName
+	if idx := strings.LastIndex(serviceName, "."); idx >= 0 {
+		shortName = serviceName[idx+1:]
+	}
+
+	services := fd.Services()
+	for i := range services.Len() {
+		svc := services.Get(i)
+		if string(svc.FullName()) != serviceName && string(svc.Name()) != shortName {
+			continue
+		}
+
+		methods := svc.Methods()
+		for j := range methods.Len() {
+			m := methods.Get(j)
+			if string(m.Name()) == methodName {
+				return m, nil
+			}
+		}
+
+		return nil, fmt.Errorf("method %q not found in service %s", methodName, svc.FullName())
+	}
+
+	return nil, fmt.Errorf("service %q not found in file", serviceName)
+}
+
+// GrpcInvoke performs a unary gRPC call using server reflection to discover types.
+func GrpcInvoke(ctx context.Context, req GrpcRequest) (string, error) {
+	if err := validateGrpcRequest(req); err != nil {
+		return "", err
+	}
+
+	conn, err := dialGrpc(req.Server, req.TLS)
+	if err != nil {
+		return "", err
+	}
+
+	defer conn.Close()
+
+	md, err := buildMethodDesc(ctx, conn, req.Service, req.Method)
+	if err != nil {
+		return "", fmt.Errorf("resolve method: %w", err)
+	}
+
+	if md.IsStreamingClient() || md.IsStreamingServer() {
+		return "", errors.New("streaming RPCs are not yet supported")
+	}
+
+	reqMsg, err := buildRequestMessage(md, req.Message)
+	if err != nil {
+		return "", err
+	}
+
+	respMsg := dynamicpb.NewMessage(md.Output())
+
+	fullMethod, err := buildFullMethod(md)
+	if err != nil {
+		return "", err
+	}
+
+	invokeCtx, cancel := context.WithTimeout(ctx, grpcInvokeTimeout)
+	defer cancel()
+
+	if len(req.Meta) > 0 {
+		invokeCtx = metadata.NewOutgoingContext(invokeCtx, metadata.New(req.Meta))
+	}
+
+	if err := conn.Invoke(invokeCtx, fullMethod, reqMsg, respMsg); err != nil {
+		return "", grpcError(err)
+	}
+
+	return marshalResponse(respMsg)
+}
+
+func validateGrpcRequest(req GrpcRequest) error {
+	if strings.TrimSpace(req.Server) == "" {
+		return errors.New("server address is required")
+	}
+
+	if strings.TrimSpace(req.Service) == "" {
+		return errors.New("service name is required")
+	}
+
+	if strings.TrimSpace(req.Method) == "" {
+		return errors.New("method name is required")
+	}
+
+	return nil
+}
+
+func buildRequestMessage(md protoreflect.MethodDescriptor, jsonMsg string) (*dynamicpb.Message, error) {
+	msg := dynamicpb.NewMessage(md.Input())
+
+	if strings.TrimSpace(jsonMsg) == "" {
+		jsonMsg = "{}"
+	}
+
+	if err := protojson.Unmarshal([]byte(jsonMsg), msg); err != nil {
+		return nil, fmt.Errorf("unmarshal request JSON: %w", err)
+	}
+
+	return msg, nil
+}
+
+func buildFullMethod(md protoreflect.MethodDescriptor) (string, error) {
+	svcDesc, ok := md.Parent().(protoreflect.ServiceDescriptor)
+	if !ok {
+		return "", errors.New("method parent is not a service descriptor")
+	}
+
+	prefix := ""
+
+	if pf := md.ParentFile(); pf != nil {
+		if pkg := string(pf.Package()); pkg != "" {
+			prefix = pkg + "."
+		}
+	}
+
+	return "/" + prefix + string(svcDesc.Name()) + "/" + string(md.Name()), nil
+}
+
+func grpcError(err error) error {
+	st, _ := status.FromError(err)
+
+	return fmt.Errorf("gRPC %s (%d): %s", st.Code(), st.Code(), st.Message())
+}
+
+func marshalResponse(msg proto.Message) (string, error) {
+	mo := protojson.MarshalOptions{EmitUnpopulated: true}
+
+	respJSON, err := mo.Marshal(msg)
+	if err != nil {
+		return "", fmt.Errorf("marshal response: %w", err)
+	}
+
+	var raw any
+	if err := json.Unmarshal(respJSON, &raw); err == nil {
+		if pretty, err := json.MarshalIndent(raw, "", "  "); err == nil {
+			return string(pretty), nil
+		}
+	}
+
+	return string(respJSON), nil
+}
+
+// GrpcListMethods uses server reflection to list all methods of a given service.
+func GrpcListMethods(ctx context.Context, server, serviceName string, useTLS bool) ([]string, error) {
+	conn, err := dialGrpc(server, useTLS)
+	if err != nil {
+		return nil, err
+	}
+
+	defer conn.Close()
+
+	reflectCtx, cancel := context.WithTimeout(ctx, grpcReflectTimeout)
+	defer cancel()
+
+	fds, err := reflectFileDescs(reflectCtx, conn, serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(fds) == 0 {
+		return nil, fmt.Errorf("no file descriptors for %s", serviceName)
+	}
+
+	fd, err := protodesc.NewFile(fds[0], nil)
+	if err != nil {
+		return nil, fmt.Errorf("build file descriptor: %w", err)
+	}
+
+	return extractMethods(fd, serviceName)
+}
+
+func extractMethods(fd protoreflect.FileDescriptor, serviceName string) ([]string, error) {
+	shortName := serviceName
+	if idx := strings.LastIndex(serviceName, "."); idx >= 0 {
+		shortName = serviceName[idx+1:]
+	}
+
+	services := fd.Services()
+	for i := range services.Len() {
+		svc := services.Get(i)
+		if string(svc.FullName()) != serviceName && string(svc.Name()) != shortName {
+			continue
+		}
+
+		methods := svc.Methods()
+
+		names := make([]string, 0, methods.Len())
+		for j := range methods.Len() {
+			m := methods.Get(j)
+			names = append(names, string(m.Name()))
+		}
+
+		return names, nil
+	}
+
+	return nil, fmt.Errorf("service %q not found", serviceName)
+}
+
+// GrpcListServices uses server reflection to list all available service names.
+func GrpcListServices(ctx context.Context, server string, useTLS bool) ([]string, error) {
+	conn, err := dialGrpc(server, useTLS)
+	if err != nil {
+		return nil, err
+	}
+
+	defer conn.Close()
+
+	reflectCtx, cancel := context.WithTimeout(ctx, grpcReflectTimeout)
+	defer cancel()
+
+	stream, err := reflectStream(reflectCtx, conn)
+	if err != nil {
+		return nil, err
+	}
+
+	defer stream.CloseSend()
+
+	req := &reflectionpb.ServerReflectionRequest{
+		MessageRequest: &reflectionpb.ServerReflectionRequest_ListServices{
+			ListServices: "",
+		},
+	}
+
+	if err := stream.Send(req); err != nil {
+		return nil, fmt.Errorf("send list request: %w", err)
+	}
+
+	resp, err := stream.Recv()
+	if err != nil {
+		return nil, fmt.Errorf("recv list response: %w", err)
+	}
+
+	lsResp, ok := resp.MessageResponse.(*reflectionpb.ServerReflectionResponse_ListServicesResponse)
+	if !ok {
+		return nil, errors.New("unexpected response type")
+	}
+
+	names := make([]string, 0, len(lsResp.ListServicesResponse.Service))
+	for _, svc := range lsResp.ListServicesResponse.Service {
+		names = append(names, svc.Name)
+	}
+
+	return names, nil
+}

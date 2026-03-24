@@ -1,0 +1,53 @@
+# Wails build output
+build/
+bin/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.log
+
+# Node & frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.next/
+frontend/.turbo/
+
+# Vite
+.vitepress/dist/
+vite.svg
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env files
+.env
+.env.*
+
+# IDEs & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Optional lockfiles 
+pnpm-lock.yaml
+yarn.lock
+
+# Build cache
+*.tsbuildinfo
+
+# Coverage
+coverage/
+
+.claude
