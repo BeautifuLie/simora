@@ -111,11 +111,27 @@ export interface Environment {
 
 // ── Variable resolution ────────────────────────────────────────────────────
 
-export function resolveVars(text: string, env: Environment | null): string {
-    if (!env || !text.includes('{{')) return text;
+// CollectionVariable has the same shape as EnvVariable and is scoped to one collection.
+export type CollectionVariable = EnvVariable;
+
+export function resolveVars(
+    text: string,
+    env: Environment | null,
+    collectionVars?: CollectionVariable[]
+): string {
+    if (!text.includes('{{')) return text;
     return text.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
-        const v = env.variables.find(variable => variable.key === key.trim() && variable.enabled);
-        return v ? v.value : match;
+        const trimmed = key.trim();
+        // Environment variables take precedence over collection variables.
+        if (env) {
+            const envVar = env.variables.find(v => v.key === trimmed && v.enabled);
+            if (envVar) return envVar.value;
+        }
+        if (collectionVars) {
+            const colVar = collectionVars.find(v => v.key === trimmed && v.enabled);
+            if (colVar) return colVar.value;
+        }
+        return match;
     });
 }
 

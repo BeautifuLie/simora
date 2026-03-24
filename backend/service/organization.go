@@ -615,6 +615,18 @@ func (s *OrganizationService) RenameCollection(orgID, projID, id, newName string
 	})
 }
 
+// UpdateCollectionVariables replaces the variable list for a collection.
+func (s *OrganizationService) UpdateCollectionVariables(orgID, projID, collID string, vars []domain.CollectionVariable) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.updateCollection(orgID, projID, collID, func(coll *domain.Collection) error {
+		coll.Variables = vars
+
+		return nil
+	})
+}
+
 func (s *OrganizationService) RenameFolder(orgID, projID, collID, folderID, newName string) error {
 	if strings.TrimSpace(newName) == "" {
 		return ErrNameEmpty
