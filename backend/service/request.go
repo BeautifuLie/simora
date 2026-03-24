@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/http/cookiejar"
 	"sync"
 	"time"
 
@@ -19,11 +18,11 @@ type RequestService struct {
 	mu        sync.Mutex
 	appCtx    *ContextHolder
 	settings  *SettingsService
-	cookieJar http.CookieJar
+	cookieJar *trackedJar
 }
 
 func NewRequestService(appCtx *ContextHolder) (*RequestService, error) {
-	jar, err := cookiejar.New(nil)
+	jar, err := newTrackedJar()
 	if err != nil {
 		return nil, fmt.Errorf("create cookie jar: %w", err)
 	}
@@ -31,9 +30,26 @@ func NewRequestService(appCtx *ContextHolder) (*RequestService, error) {
 	return &RequestService{appCtx: appCtx, settings: NewSettingsService(), cookieJar: jar}, nil
 }
 
+// GetCookies returns all cookies currently stored in the jar.
+func (s *RequestService) GetCookies() []CookieEntry {
+	s.mu.Lock()
+	jar := s.cookieJar
+	s.mu.Unlock()
+
+	return jar.All()
+}
+
+// DeleteCookie removes a single cookie from the tracked jar.
+func (s *RequestService) DeleteCookie(domain, name string) {
+	s.mu.Lock()
+	jar := s.cookieJar
+	s.mu.Unlock()
+	jar.Delete(domain, name)
+}
+
 // ClearCookies resets the cookie jar, removing all stored cookies.
 func (s *RequestService) ClearCookies() error {
-	jar, err := cookiejar.New(nil)
+	jar, err := newTrackedJar()
 	if err != nil {
 		return fmt.Errorf("create cookie jar: %w", err)
 	}
