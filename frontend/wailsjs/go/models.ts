@@ -494,6 +494,31 @@ export namespace domain {
 
 }
 
+export namespace service {
+	
+	export class CookieEntry {
+	    domain: string;
+	    name: string;
+	    value: string;
+	    path: string;
+	    secure: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new CookieEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.domain = source["domain"];
+	        this.name = source["name"];
+	        this.value = source["value"];
+	        this.path = source["path"];
+	        this.secure = source["secure"];
+	    }
+	}
+
+}
+
 export namespace transport {
 	
 	export class GrpcRequest {
@@ -739,28 +764,3 @@ export namespace transport {
 
 }
 
-
-export namespace service {
-
-	export class CookieEntry {
-	    domain: string;
-	    name: string;
-	    value: string;
-	    path: string;
-	    secure: boolean;
-
-	    static createFrom(source: any = {}) {
-	        return new CookieEntry(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.domain = source["domain"];
-	        this.name = source["name"];
-	        this.value = source["value"];
-	        this.path = source["path"];
-	        this.secure = source["secure"];
-	    }
-	}
-
-}

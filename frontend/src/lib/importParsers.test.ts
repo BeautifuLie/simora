@@ -156,6 +156,46 @@ describe('parseCollection — unknown format', () => {
         expect(data).toBeNull();
         expect(error).not.toBeNull();
     });
+
+    it('returns a hint for OpenAPI 3 format', () => {
+        const { data, error } = parseCollection(
+            JSON.stringify({ openapi: '3.0.0', info: { title: 'My API' }, paths: {} })
+        );
+        expect(data).toBeNull();
+        expect(error).toMatch(/OpenAPI/);
+    });
+
+    it('returns a hint for Swagger 2 format', () => {
+        const { data, error } = parseCollection(
+            JSON.stringify({ swagger: '2.0', info: { title: 'My API' }, paths: {} })
+        );
+        expect(data).toBeNull();
+        expect(error).toMatch(/OpenAPI/);
+    });
+
+    it('returns a hint for Postman v1 format', () => {
+        const { data, error } = parseCollection(
+            JSON.stringify({
+                id: 'abc',
+                name: 'My Collection',
+                requests: [{ id: 'req1', name: 'Get', method: 'GET', url: 'https://example.com' }],
+            })
+        );
+        expect(data).toBeNull();
+        expect(error).toMatch(/Postman v1/);
+    });
+
+    it('returns a hint for HAR format', () => {
+        const { data, error } = parseCollection(
+            JSON.stringify({
+                log: {
+                    entries: [{ request: { method: 'GET', url: 'https://example.com' } }],
+                },
+            })
+        );
+        expect(data).toBeNull();
+        expect(error).toMatch(/HAR/);
+    });
 });
 
 describe('parsePostman', () => {

@@ -347,8 +347,13 @@ func extractMethods(fd protoreflect.FileDescriptor, serviceName string) ([]strin
 
 		methods := svc.Methods()
 
-		names := make([]string, 0, methods.Len())
-		for j := range methods.Len() {
+		limit := methods.Len()
+		if limit > maxReflectMethods {
+			limit = maxReflectMethods
+		}
+
+		names := make([]string, 0, limit)
+		for j := range limit {
 			m := methods.Get(j)
 			names = append(names, string(m.Name()))
 		}
@@ -521,8 +526,13 @@ func GrpcListServices(ctx context.Context, server string, useTLS bool) ([]string
 		return nil, errors.New("unexpected response type")
 	}
 
-	names := make([]string, 0, len(lsResp.ListServicesResponse.Service))
-	for _, svc := range lsResp.ListServicesResponse.Service {
+	svcs := lsResp.ListServicesResponse.Service
+	if len(svcs) > maxReflectServices {
+		svcs = svcs[:maxReflectServices]
+	}
+
+	names := make([]string, 0, len(svcs))
+	for _, svc := range svcs {
 		names = append(names, svc.Name)
 	}
 

@@ -195,6 +195,25 @@ export function parseCollection(text: string): ParseResult {
     )
         return { data: parseInsomniaV5(j), error: null };
 
+    // Provide hints for known unsupported formats
+    if (typeof j.openapi === 'string' || typeof j.swagger === 'string')
+        return {
+            data: null,
+            error: 'OpenAPI/Swagger format detected. Export the collection from Postman as Postman v2.1 JSON and try again.',
+        };
+
+    if (Array.isArray(j.requests) && !j.item)
+        return {
+            data: null,
+            error: 'Postman v1 format detected. Re-export from Postman using Collection v2.1 format.',
+        };
+
+    if (Array.isArray((j.log as Record<string, unknown> | null)?.entries))
+        return {
+            data: null,
+            error: 'HAR archive detected. Import from HAR is not supported. Export the collection as Postman v2.1 JSON instead.',
+        };
+
     return {
         data: null,
         error: 'Unrecognised format. Supported: Postman v2.1, Insomnia v4/v5 (JSON or YAML).',
