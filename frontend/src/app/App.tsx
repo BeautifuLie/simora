@@ -15,7 +15,7 @@ import { ResponsePanel } from '@/components/response/ResponsePanel';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { useAppStore, selectActivePath, selectEditing } from '@/store/app';
 import { KeyboardShortcutsModal } from '@/components/layout/KeyboardShortcutsModal';
-import { GetVersion } from '../../wailsjs/go/main/App';
+import { GetVersion, CheckForUpdate } from '../../wailsjs/go/main/App';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 // ── Environment switcher ──────────────────────────────────────────────────
@@ -136,11 +136,29 @@ function StatusBar() {
     const activePath = useAppStore(selectActivePath);
     const editing = useAppStore(selectEditing);
     const [version, setVersion] = React.useState('');
+    const [updateInfo, setUpdateInfo] = React.useState<{
+        latestVersion: string;
+        releaseURL: string;
+    } | null>(null);
 
     React.useEffect(() => {
         GetVersion()
             .then((v: string) => setVersion(v))
             .catch(() => {});
+        // Delay update check slightly so it doesn't compete with startup I/O.
+        const timer = setTimeout(() => {
+            CheckForUpdate()
+                .then(info => {
+                    if (info?.available) {
+                        setUpdateInfo({
+                            latestVersion: info.latestVersion,
+                            releaseURL: info.releaseURL,
+                        });
+                    }
+                })
+                .catch(() => {});
+        }, 3000);
+        return () => clearTimeout(timer);
     }, []);
 
     const org = activePath ? organizations.find(o => o.id === activePath.orgId) : null;
@@ -201,6 +219,25 @@ function StatusBar() {
                 <span style={{ color: 'var(--text-2)' }}>
                     {version ? `Simora ${version}` : 'Simora'}
                 </span>
+                {updateInfo && (
+                    <>
+                        <span style={{ color: 'var(--border-1)' }}>·</span>
+                        <a
+                            href={updateInfo.releaseURL}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                                color: '#22c55e',
+                                fontSize: 'var(--text-sm)',
+                                fontWeight: 600,
+                                textDecoration: 'none',
+                            }}
+                            title={`${updateInfo.latestVersion} is available — click to open release page`}
+                        >
+                            ↑ {updateInfo.latestVersion}
+                        </a>
+                    </>
+                )}
             </div>
         </div>
     );
