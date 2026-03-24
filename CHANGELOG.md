@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Cmd/Ctrl+F` keyboard shortcut to open search in the response body panel
 - Export collection as Insomnia v4 JSON (in addition to existing Postman v2.1 export)
 - Improved empty collections screen: Lucide icons instead of emoji, merged import cards into one, added keyboard shortcuts hints
+- HTTP cookie jar management panel in Settings: view all stored cookies, delete individual entries, or clear the entire jar
+- SQS FIFO queue support: Message Group ID and Deduplication ID fields appear automatically when the queue URL ends with `.fifo`
 
 ## [v0.1.1] - 2026-03-24
 

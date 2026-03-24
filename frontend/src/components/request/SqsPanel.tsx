@@ -157,7 +157,7 @@ function SqsMessageTab() {
                 />
             </div>
 
-            {/* Delay + Group ID */}
+            {/* Delay */}
             <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 140 }}>
                     <Label>Delay Seconds</Label>
@@ -183,6 +183,72 @@ function SqsMessageTab() {
                     />
                 </div>
             </div>
+
+            {/* FIFO fields — only shown when the queue URL ends with .fifo */}
+            {editing.sqs.queueUrl.toLowerCase().endsWith('.fifo') && (
+                <div
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 10,
+                        flexShrink: 0,
+                        padding: '10px 12px',
+                        borderRadius: 'var(--r-sm)',
+                        background: 'color-mix(in srgb, var(--yellow) 6%, transparent)',
+                        border: '1px solid color-mix(in srgb, var(--yellow) 20%, transparent)',
+                    }}
+                >
+                    <span
+                        style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            letterSpacing: '0.05em',
+                            textTransform: 'uppercase',
+                            color: 'var(--yellow)',
+                        }}
+                    >
+                        FIFO Queue
+                    </span>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                            <Label>Message Group ID</Label>
+                            <input
+                                value={editing.sqs.messageGroupId}
+                                onChange={e => patchSqs({ messageGroupId: e.target.value })}
+                                placeholder="Required for FIFO queues"
+                                className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] transition-colors focus:border-[var(--border-focus)]"
+                                style={{
+                                    height: 'var(--input-height)',
+                                    padding: '0 10px',
+                                    fontSize: 'var(--text-base)',
+                                    fontFamily: "'JetBrains Mono Variable', monospace",
+                                    color: 'var(--text-0)',
+                                    border: '1px solid var(--border-1)',
+                                }}
+                                spellCheck={false}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                            <Label>Deduplication ID</Label>
+                            <input
+                                value={editing.sqs.messageDeduplicationId}
+                                onChange={e => patchSqs({ messageDeduplicationId: e.target.value })}
+                                placeholder="Leave empty if content-based"
+                                className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] transition-colors focus:border-[var(--border-focus)]"
+                                style={{
+                                    height: 'var(--input-height)',
+                                    padding: '0 10px',
+                                    fontSize: 'var(--text-base)',
+                                    fontFamily: "'JetBrains Mono Variable', monospace",
+                                    color: 'var(--text-0)',
+                                    border: '1px solid var(--border-1)',
+                                }}
+                                spellCheck={false}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

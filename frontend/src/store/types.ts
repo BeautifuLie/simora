@@ -90,6 +90,9 @@ export interface SqsConfig {
     accessKeyId: string;
     secretAccessKey: string;
     sessionToken: string;
+    // FIFO-only fields
+    messageGroupId: string;
+    messageDeduplicationId: string;
 }
 
 // ── Environment ────────────────────────────────────────────────────────────
