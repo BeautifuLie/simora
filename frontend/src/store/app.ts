@@ -52,6 +52,7 @@ import type {
     GrpcConfig,
     KafkaConfig,
     SqsConfig,
+    EnvVariable,
     Environment,
     QueryParam,
     BodyType,
@@ -210,6 +211,7 @@ interface AppState {
     importCollection: (_orgId: string, _projectId: string, _col: Collection) => void;
     renameCollection: (_collectionId: string, _name: string) => void;
     deleteCollection: (_collectionId: string) => void;
+    setCollectionVariables: (_collectionId: string, _vars: EnvVariable[]) => void;
 
     // Actions — environments
     setActiveEnv: (_id: string | null) => void;
@@ -1023,6 +1025,23 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (!tab || !editing) return;
 
         const activeEnv = s.environments.find(e => e.id === s.activeEnvId) ?? null;
+
+        // Find collection variables for the active tab's collection.
+        const colVars: EnvVariable[] | undefined = (() => {
+            const p = tab.path;
+            if (!p) return undefined;
+            for (const org of s.organizations) {
+                for (const proj of org.projects ?? []) {
+                    const col = proj.collections?.find(c => c.id === p.collectionId);
+                    if (col) return (col as any).variables as EnvVariable[] | undefined;
+                }
+            }
+            return undefined;
+        })();
+
+        // Convenience wrapper that applies both env and collection vars.
+        const rv = (text: string) => resolveVars(text, activeEnv, colVars);
+
         set(st =>
             patchActiveTab(st, { responseLoading: true, responseError: null, response: null })
         );
@@ -1032,26 +1051,23 @@ export const useAppStore = create<AppState>((set, get) => ({
             editing.headers
                 .filter(h => h.enabled && h.key)
                 .forEach(h => {
-                    headersMap[resolveVars(h.key, activeEnv)] = resolveVars(h.value, activeEnv);
+                    headersMap[rv(h.key)] = rv(h.value);
                 });
             // Auth header injection
             const auth = editing.auth;
             if (auth.type === 'bearer' && auth.token) {
-                headersMap['Authorization'] = `Bearer ${resolveVars(auth.token, activeEnv)}`;
+                headersMap['Authorization'] = `Bearer ${rv(auth.token)}`;
             } else if (auth.type === 'basic' && auth.username) {
                 headersMap['Authorization'] =
-                    `Basic ${btoa(`${resolveVars(auth.username, activeEnv)}:${resolveVars(auth.password, activeEnv)}`)}`;
+                    `Basic ${btoa(`${rv(auth.username)}:${rv(auth.password)}`)}`;
             } else if (auth.type === 'apikey' && auth.headerName) {
-                headersMap[resolveVars(auth.headerName, activeEnv)] = resolveVars(
-                    auth.headerValue,
-                    activeEnv
-                );
+                headersMap[rv(auth.headerName)] = rv(auth.headerValue);
             } else if (auth.type === 'oauth2' && auth.oauth2AccessToken) {
                 headersMap['Authorization'] = `Bearer ${auth.oauth2AccessToken}`;
             }
             let method = editing.method;
-            let body = resolveVars(editing.body, activeEnv);
-            const url = resolveVars(editing.url, activeEnv);
+            let body = rv(editing.body);
+            const url = rv(editing.url);
 
             // Binary body: pass base64 content with special marker header
             if (editing.bodyType === 'binary' && editing.binaryContent) {
@@ -1165,17 +1181,15 @@ export const useAppStore = create<AppState>((set, get) => ({
             if (editing.protocol === 'grpc') {
                 const g = editing.grpc;
                 const metaMap = Object.fromEntries(
-                    g.meta
-                        .filter(h => h.enabled && h.key)
-                        .map(h => [resolveVars(h.key, activeEnv), resolveVars(h.value, activeEnv)])
+                    g.meta.filter(h => h.enabled && h.key).map(h => [rv(h.key), rv(h.value)])
                 );
                 let bodyStr: string;
                 if (isWails) {
                     bodyStr = await GrpcService.Invoke({
-                        Server: resolveVars(g.server, activeEnv),
+                        Server: rv(g.server),
                         Service: g.service,
                         Method: g.method,
-                        Message: resolveVars(g.message, activeEnv),
+                        Message: rv(g.message),
                         Meta: metaMap,
                         TLS: g.tls,
                     } as any);
@@ -1209,9 +1223,9 @@ export const useAppStore = create<AppState>((set, get) => ({
             if (editing.protocol === 'sqs') {
                 const sq = editing.sqs;
                 const sqsAuth = {
-                    AccessKeyID: resolveVars(sq.accessKeyId, activeEnv),
-                    SecretAccessKey: resolveVars(sq.secretAccessKey, activeEnv),
-                    SessionToken: resolveVars(sq.sessionToken, activeEnv),
+                    AccessKeyID: rv(sq.accessKeyId),
+                    SecretAccessKey: rv(sq.secretAccessKey),
+                    SessionToken: rv(sq.sessionToken),
                 };
                 const attrs = sq.attributes
                     .filter(a => a.enabled && a.key)
@@ -1223,8 +1237,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                 let bodyStr: string;
                 if (isWails) {
                     bodyStr = await SqsService.Send({
-                        QueueURL: resolveVars(sq.queueUrl, activeEnv),
-                        Body: resolveVars(sq.body, activeEnv),
+                        QueueURL: rv(sq.queueUrl),
+                        Body: rv(sq.body),
                         Region: sq.region,
                         DelaySeconds: sq.delaySeconds,
                         Attributes: attrs,
@@ -2117,6 +2131,31 @@ export const useAppStore = create<AppState>((set, get) => ({
                     s.activeCollectionId === collectionId ? null : s.activeCollectionId,
             };
         });
+    },
+
+    setCollectionVariables: (collectionId, vars) => {
+        const colPath = findCollectionPath(get().organizations, collectionId);
+
+        set(s => ({
+            organizations: s.organizations.map(org => ({
+                ...org,
+                projects: org.projects?.map(proj => ({
+                    ...proj,
+                    collections: proj.collections?.map(col =>
+                        col.id === collectionId ? { ...col, variables: vars } : col
+                    ),
+                })),
+            })) as Organization[],
+        }));
+
+        if (isWails && colPath) {
+            OrganizationService.UpdateCollectionVariables(
+                colPath.orgId,
+                colPath.projectId,
+                collectionId,
+                vars as any
+            ).catch(console.error);
+        }
     },
 
     // ── Environments ──────────────────────────────────────────────────────────

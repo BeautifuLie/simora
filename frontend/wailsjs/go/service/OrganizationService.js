@@ -66,6 +66,10 @@ export function RenameRequest(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['service']['OrganizationService']['RenameRequest'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function UpdateCollectionVariables(arg1, arg2, arg3, arg4) {
+  return window['go']['service']['OrganizationService']['UpdateCollectionVariables'](arg1, arg2, arg3, arg4);
+}
+
 export function UpdateRequest(arg1, arg2, arg3, arg4) {
   return window['go']['service']['OrganizationService']['UpdateRequest'](arg1, arg2, arg3, arg4);
 }
