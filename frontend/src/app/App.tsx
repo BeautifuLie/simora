@@ -15,7 +15,13 @@ import { ResponsePanel } from '@/components/response/ResponsePanel';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { useAppStore, selectActivePath, selectEditing } from '@/store/app';
 import { KeyboardShortcutsModal } from '@/components/layout/KeyboardShortcutsModal';
-import { GetVersion, CheckForUpdate } from '../../wailsjs/go/main/App';
+import {
+    GetVersion,
+    CheckForUpdate,
+    GetCrashReport,
+    ClearCrashReports,
+    ReportCrash,
+} from '../../wailsjs/go/main/App';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 // ── Environment switcher ──────────────────────────────────────────────────
@@ -252,6 +258,7 @@ export default function App() {
     const sendRequest = useAppStore(s => s.sendRequest);
     const saveRequest = useAppStore(s => s.saveRequest);
     const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
+    const [crashReport, setCrashReport] = React.useState<string | null>(null);
 
     // Apply theme, font-size and accent to document root
     React.useEffect(() => {
@@ -293,6 +300,36 @@ export default function App() {
         }
         applyBgPreset(preset ?? presets[0]);
     }, [settings.bgPreset, settings.theme, settings.customBgDark, settings.customBgLight]);
+
+    // Crash reporter: register window.onerror and check for previous crashes
+    React.useEffect(() => {
+        if (!settings.crashReporterEnabled) return;
+
+        // Check for crash reports from previous sessions.
+        GetCrashReport()
+            .then(report => {
+                if (report) setCrashReport(report);
+            })
+            .catch(() => {});
+
+        // Capture future uncaught errors.
+        const onError = (e: ErrorEvent) => {
+            const msg = `${e.message}\n  at ${e.filename}:${e.lineno}:${e.colno}\n${e.error?.stack ?? ''}`;
+            ReportCrash(msg).catch(() => {});
+        };
+
+        const onUnhandled = (e: PromiseRejectionEvent) => {
+            const msg = `Unhandled promise rejection: ${String(e.reason)}\n${e.reason?.stack ?? ''}`;
+            ReportCrash(msg).catch(() => {});
+        };
+
+        window.addEventListener('error', onError);
+        window.addEventListener('unhandledrejection', onUnhandled);
+        return () => {
+            window.removeEventListener('error', onError);
+            window.removeEventListener('unhandledrejection', onUnhandled);
+        };
+    }, [settings.crashReporterEnabled]);
 
     // Global keyboard shortcuts
     React.useEffect(() => {
@@ -362,6 +399,55 @@ export default function App() {
             </div>
 
             <StatusBar />
+            {crashReport && (
+                <div
+                    className="flex items-center gap-3 shrink-0 px-3"
+                    style={{
+                        height: 32,
+                        background: '#7c3aed22',
+                        borderTop: '1px solid #7c3aed55',
+                        fontSize: 'var(--text-sm)',
+                        color: 'var(--text-1)',
+                    }}
+                >
+                    <span style={{ color: '#c084fc' }}>
+                        ⚠ A crash was detected in the last session.
+                    </span>
+                    <button
+                        style={{
+                            color: '#c084fc',
+                            fontSize: 'var(--text-sm)',
+                            textDecoration: 'underline',
+                            cursor: 'pointer',
+                        }}
+                        onClick={() => {
+                            const blob = new Blob([crashReport], { type: 'text/plain' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'simora-crash.log';
+                            a.click();
+                            URL.revokeObjectURL(url);
+                        }}
+                    >
+                        Download report
+                    </button>
+                    <button
+                        style={{
+                            color: 'var(--text-2)',
+                            fontSize: 'var(--text-sm)',
+                            textDecoration: 'underline',
+                            cursor: 'pointer',
+                        }}
+                        onClick={() => {
+                            ClearCrashReports().catch(() => {});
+                            setCrashReport(null);
+                        }}
+                    >
+                        Dismiss
+                    </button>
+                </div>
+            )}
             <EnvPanel />
             <SettingsPanel />
             <CommandPalette />

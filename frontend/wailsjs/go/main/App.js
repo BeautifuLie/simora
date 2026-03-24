@@ -6,8 +6,20 @@ export function CheckForUpdate() {
   return window['go']['main']['App']['CheckForUpdate']();
 }
 
+export function ClearCrashReports() {
+  return window['go']['main']['App']['ClearCrashReports']();
+}
+
+export function GetCrashReport() {
+  return window['go']['main']['App']['GetCrashReport']();
+}
+
 export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
+}
+
+export function ReportCrash(arg1) {
+  return window['go']['main']['App']['ReportCrash'](arg1);
 }
 
 export function SaveFile(arg1, arg2) {

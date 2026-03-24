@@ -31,3 +31,19 @@ func simoraFile(name string) (string, error) {
 
 	return filepath.Join(dir, name), nil
 }
+
+// CrashesDir returns the path to the directory where crash reports are stored.
+// The directory is created if it does not exist.
+func CrashesDir() (string, error) {
+	dir, err := simoraDir()
+	if err != nil {
+		return "", err
+	}
+
+	crashDir := filepath.Join(dir, "crashes")
+	if err := os.MkdirAll(crashDir, dirPerm); err != nil {
+		return "", fmt.Errorf("create crashes dir: %w", err)
+	}
+
+	return crashDir, nil
+}

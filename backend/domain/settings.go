@@ -2,14 +2,15 @@ package domain
 
 // Settings holds user preferences persisted across sessions.
 type Settings struct {
-	Timeout         int    `json:"timeout"`
-	FollowRedirects bool   `json:"followRedirects"`
-	ValidateSSL     bool   `json:"validateSsl"`
-	MaxRedirects    int    `json:"maxRedirects"`
-	SendOnEnter     bool   `json:"sendOnEnter"`
-	FontSize        string `json:"fontSize"`
-	Theme           string `json:"theme"`
-	AccentColor     string `json:"accentColor,omitempty"`
+	Timeout              int    `json:"timeout"`
+	FollowRedirects      bool   `json:"followRedirects"`
+	ValidateSSL          bool   `json:"validateSsl"`
+	MaxRedirects         int    `json:"maxRedirects"`
+	SendOnEnter          bool   `json:"sendOnEnter"`
+	FontSize             string `json:"fontSize"`
+	Theme                string `json:"theme"`
+	AccentColor          string `json:"accentColor,omitempty"`
+	CrashReporterEnabled bool   `json:"crashReporterEnabled,omitempty"`
 }
 
 func DefaultSettings() Settings {
