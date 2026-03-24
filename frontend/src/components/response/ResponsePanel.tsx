@@ -178,8 +178,8 @@ function BodyTab({ body }: { body: string }) {
         }
     }, [body]);
 
-    const graphqlErrorCount = React.useMemo(() => {
-        if (!isJson) return 0;
+    const graphqlErrors = React.useMemo((): string[] => {
+        if (!isJson) return [];
         try {
             const parsed = JSON.parse(body);
             if (
@@ -188,12 +188,14 @@ function BodyTab({ body }: { body: string }) {
                 !Array.isArray(parsed) &&
                 Array.isArray(parsed.errors)
             ) {
-                return (parsed.errors as unknown[]).length;
+                return (parsed.errors as any[]).map(e =>
+                    typeof e?.message === 'string' ? e.message : JSON.stringify(e)
+                );
             }
         } catch {
             // ignore
         }
-        return 0;
+        return [];
     }, [body, isJson]);
 
     const isXml = React.useMemo(() => {
@@ -388,10 +390,10 @@ function BodyTab({ body }: { body: string }) {
             </div>
 
             {/* GraphQL errors banner */}
-            {graphqlErrorCount > 0 && (
+            {graphqlErrors.length > 0 && (
                 <div
                     style={{
-                        padding: '5px 14px',
+                        padding: '6px 14px',
                         background: 'color-mix(in srgb, var(--orange) 10%, var(--bg-1))',
                         borderBottom:
                             '1px solid color-mix(in srgb, var(--orange) 25%, transparent)',
@@ -399,7 +401,14 @@ function BodyTab({ body }: { body: string }) {
                         color: 'var(--orange)',
                     }}
                 >
-                    GraphQL errors detected ({graphqlErrorCount})
+                    {graphqlErrors.map((msg, i) => (
+                        <div key={i} style={{ lineHeight: 1.5 }}>
+                            {graphqlErrors.length > 1 && (
+                                <span style={{ opacity: 0.6, marginRight: 6 }}>{i + 1}.</span>
+                            )}
+                            {msg}
+                        </div>
+                    ))}
                 </div>
             )}
 

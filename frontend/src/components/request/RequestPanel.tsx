@@ -1,5 +1,15 @@
 import React from 'react';
-import { Send, ChevronDown, Plus, X, Lock, Loader2, Upload, FileText } from 'lucide-react';
+import {
+    Send,
+    ChevronDown,
+    Plus,
+    X,
+    Lock,
+    Loader2,
+    Upload,
+    FileText,
+    RefreshCw,
+} from 'lucide-react';
 import { cn, shortcut } from '@/lib/utils';
 import { MethodBadge } from '@/components/ui/badge';
 import {
@@ -1199,6 +1209,130 @@ function NoRequestSelected() {
     );
 }
 
+// ── GraphQL schema introspection helpers ──────────────────────────────────
+
+interface GqlField {
+    name: string;
+    description: string;
+    typeName: string;
+}
+
+interface GqlSchemaData {
+    queryFields: GqlField[];
+    mutationFields: GqlField[];
+    subscriptionFields: GqlField[];
+}
+
+function fmtGqlType(t: any): string {
+    if (!t) return '';
+    if (t.kind === 'NON_NULL') return `${fmtGqlType(t.ofType)}!`;
+    if (t.kind === 'LIST') return `[${fmtGqlType(t.ofType)}]`;
+    return t.name ?? '';
+}
+
+function parseGqlSchema(body: string): GqlSchemaData {
+    const data = JSON.parse(body);
+    const schema = data?.data?.__schema ?? data?.__schema;
+    if (!schema) throw new Error('No __schema in response');
+
+    const typeMap = new Map<string, any>();
+    for (const t of schema.types ?? []) typeMap.set(t.name, t);
+
+    const pickFields = (name?: string): GqlField[] => {
+        if (!name) return [];
+        return (typeMap.get(name)?.fields ?? []).map((f: any) => ({
+            name: f.name,
+            description: f.description ?? '',
+            typeName: fmtGqlType(f.type),
+        }));
+    };
+
+    return {
+        queryFields: pickFields(schema.queryType?.name),
+        mutationFields: pickFields(schema.mutationType?.name),
+        subscriptionFields: pickFields(schema.subscriptionType?.name),
+    };
+}
+
+const INTROSPECTION_QUERY = `{
+  __schema {
+    queryType { name }
+    mutationType { name }
+    subscriptionType { name }
+    types {
+      name
+      kind
+      fields(includeDeprecated: false) {
+        name
+        description
+        type { name kind ofType { name kind ofType { name kind } } }
+      }
+    }
+  }
+}`;
+
+function GqlSchemaSection({ title, fields }: { title: string; fields: GqlField[] }) {
+    if (!fields.length) return null;
+    return (
+        <div style={{ marginBottom: 20 }}>
+            <div
+                style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: 'var(--purple)',
+                    marginBottom: 6,
+                }}
+            >
+                {title}
+            </div>
+            {fields.map(f => (
+                <div
+                    key={f.name}
+                    className="flex items-baseline gap-2"
+                    style={{
+                        padding: '4px 0',
+                        borderBottom: '1px solid var(--border-0)',
+                        minWidth: 0,
+                    }}
+                >
+                    <span
+                        style={{
+                            fontFamily: "'JetBrains Mono Variable', monospace",
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--text-0)',
+                            fontWeight: 600,
+                            flexShrink: 0,
+                        }}
+                    >
+                        {f.name}
+                    </span>
+                    <span
+                        style={{
+                            fontFamily: "'JetBrains Mono Variable', monospace",
+                            fontSize: 11,
+                            color: 'var(--purple)',
+                            flexShrink: 0,
+                        }}
+                    >
+                        {f.typeName}
+                    </span>
+                    {f.description && (
+                        <span
+                            className="truncate"
+                            style={{ fontSize: 11, color: 'var(--text-2)', flex: 1 }}
+                            title={f.description}
+                        >
+                            {f.description}
+                        </span>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
+}
+
 // ── GraphQL panel ─────────────────────────────────────────────────────────
 
 function GraphQLPanel() {
@@ -1209,6 +1343,81 @@ function GraphQLPanel() {
         return t?.responseLoading ?? false;
     });
     const activeEnv = environments.find(e => e.id === activeEnvId) ?? null;
+
+    const [gqlTab, setGqlTab] = React.useState<'query' | 'schema'>('query');
+    const [schemaData, setSchemaData] = React.useState<GqlSchemaData | null>(null);
+    const [schemaLoading, setSchemaLoading] = React.useState(false);
+    const [schemaError, setSchemaError] = React.useState('');
+
+    const varsError = React.useMemo(() => {
+        const v = editing.graphql.variables;
+        if (!v || v.trim() === '' || v.trim() === '{}') return '';
+        try {
+            JSON.parse(v);
+            return '';
+        } catch (e: any) {
+            return (e as Error).message ?? 'Invalid JSON';
+        }
+    }, [editing.graphql.variables]);
+
+    const fetchSchema = React.useCallback(async () => {
+        const url = resolveVars(editing.url, activeEnv);
+        if (!url) return;
+        setSchemaLoading(true);
+        setSchemaError('');
+        try {
+            const isWails = typeof window !== 'undefined' && !!(window as any)['go'];
+            const reqBody = JSON.stringify({ query: INTROSPECTION_QUERY });
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            let responseBody: string;
+            if (isWails) {
+                const { ExecuteRequest } = await import(
+                    '../../../wailsjs/go/service/RequestService'
+                );
+                const res = await ExecuteRequest('POST', url, reqBody, headers);
+                responseBody = res.body;
+            } else {
+                responseBody = JSON.stringify({
+                    data: {
+                        __schema: {
+                            queryType: { name: 'Query' },
+                            mutationType: null,
+                            subscriptionType: null,
+                            types: [
+                                {
+                                    name: 'Query',
+                                    kind: 'OBJECT',
+                                    fields: [
+                                        {
+                                            name: 'hello',
+                                            description: 'Demo field',
+                                            type: {
+                                                name: 'String',
+                                                kind: 'SCALAR',
+                                                ofType: null,
+                                            },
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    },
+                });
+            }
+            setSchemaData(parseGqlSchema(responseBody));
+            setGqlTab('schema');
+        } catch (err: any) {
+            setSchemaError((err as Error).message ?? 'Failed to fetch schema');
+            setGqlTab('schema');
+        } finally {
+            setSchemaLoading(false);
+        }
+    }, [editing.url, activeEnv]);
+
+    const totalSchemaFields =
+        (schemaData?.queryFields.length ?? 0) +
+        (schemaData?.mutationFields.length ?? 0) +
+        (schemaData?.subscriptionFields.length ?? 0);
 
     return (
         <div className="flex flex-col h-full" style={{ background: 'var(--bg-1)' }}>
@@ -1282,6 +1491,29 @@ function GraphQLPanel() {
                         spellCheck={false}
                     />
                 </div>
+                {/* Fetch Schema button */}
+                <button
+                    className="flex items-center gap-1.5 rounded-[var(--r-sm)] shrink-0 cursor-pointer select-none transition-all duration-150 hover:bg-[var(--bg-3)] disabled:opacity-40"
+                    style={{
+                        height: 30,
+                        padding: '0 10px',
+                        border: '1px solid var(--border-1)',
+                        background: 'var(--bg-2)',
+                        fontSize: 'var(--text-sm)',
+                        color: 'var(--purple)',
+                        fontWeight: 500,
+                    }}
+                    onClick={fetchSchema}
+                    disabled={schemaLoading || !editing.url}
+                    title="Run introspection query and explore schema"
+                >
+                    {schemaLoading ? (
+                        <Loader2 style={{ width: 12, height: 12 }} className="animate-spin" />
+                    ) : (
+                        <RefreshCw style={{ width: 12, height: 12 }} />
+                    )}
+                    Schema
+                </button>
                 <button
                     className="flex items-center gap-1.5 rounded-[var(--r-sm)] shrink-0 cursor-pointer select-none transition-all duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-50"
                     style={{
@@ -1323,81 +1555,192 @@ function GraphQLPanel() {
                 </div>
             )}
 
-            {/* Query + Variables */}
+            {/* Tab bar: Query | Schema */}
             <div
-                className="flex flex-1 overflow-hidden"
-                style={{ gap: 1, background: 'var(--border-0)' }}
+                className="flex items-center shrink-0"
+                style={{ borderBottom: '1px solid var(--border-0)', paddingLeft: 4 }}
             >
-                {/* Query */}
-                <div
-                    className="flex flex-col"
-                    style={{ flex: 3, background: 'var(--bg-1)', minWidth: 0 }}
-                >
-                    <div
+                {(['query', 'schema'] as const).map(t => (
+                    <button
+                        key={t}
+                        className={cn(
+                            'relative flex items-center gap-1.5 cursor-pointer select-none transition-colors duration-150',
+                            gqlTab === t
+                                ? 'text-[var(--text-0)]'
+                                : 'text-[var(--text-2)] hover:text-[var(--text-1)]'
+                        )}
                         style={{
-                            padding: '4px 12px',
-                            fontSize: 10,
-                            fontWeight: 700,
-                            letterSpacing: '0.08em',
-                            textTransform: 'uppercase',
-                            color: 'var(--text-2)',
-                            borderBottom: '1px solid var(--border-0)',
+                            padding: '0 12px',
+                            height: 36,
+                            fontSize: 12.5,
+                            fontWeight: gqlTab === t ? 600 : 400,
                         }}
+                        onClick={() => setGqlTab(t)}
                     >
-                        Query
-                    </div>
-                    <textarea
-                        className="flex-1 w-full bg-transparent outline-none resize-none"
-                        style={{
-                            padding: '12px',
-                            fontFamily: "'JetBrains Mono Variable', monospace",
-                            fontSize: 'var(--text-base)',
-                            color: 'var(--text-0)',
-                            lineHeight: 1.7,
-                        }}
-                        value={editing.graphql.query}
-                        onChange={e => patchGraphQL({ query: e.target.value })}
-                        spellCheck={false}
-                    />
-                </div>
-
-                {/* Variables */}
-                <div
-                    className="flex flex-col"
-                    style={{ flex: 2, background: 'var(--bg-1)', minWidth: 0 }}
-                >
-                    <div
-                        style={{
-                            padding: '4px 12px',
-                            fontSize: 10,
-                            fontWeight: 700,
-                            letterSpacing: '0.08em',
-                            textTransform: 'uppercase',
-                            color: 'var(--text-2)',
-                            borderBottom: '1px solid var(--border-0)',
-                        }}
-                    >
-                        Variables{' '}
-                        <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
-                            (JSON)
-                        </span>
-                    </div>
-                    <textarea
-                        className="flex-1 w-full bg-transparent outline-none resize-none"
-                        style={{
-                            padding: '12px',
-                            fontFamily: "'JetBrains Mono Variable', monospace",
-                            fontSize: 'var(--text-base)',
-                            color: 'var(--text-0)',
-                            lineHeight: 1.7,
-                        }}
-                        value={editing.graphql.variables}
-                        onChange={e => patchGraphQL({ variables: e.target.value })}
-                        spellCheck={false}
-                        placeholder="{}"
-                    />
-                </div>
+                        {gqlTab === t && (
+                            <span className="absolute bottom-0 left-0 right-0 h-[1.5px] rounded-t bg-[var(--purple)]" />
+                        )}
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                        {t === 'schema' && totalSchemaFields > 0 && (
+                            <span
+                                style={{
+                                    fontSize: 10,
+                                    padding: '1px 5px',
+                                    borderRadius: 8,
+                                    background: 'var(--purple-dim)',
+                                    color: 'var(--purple)',
+                                    fontWeight: 600,
+                                }}
+                            >
+                                {totalSchemaFields}
+                            </span>
+                        )}
+                    </button>
+                ))}
             </div>
+
+            {/* Query tab */}
+            {gqlTab === 'query' && (
+                <div
+                    className="flex flex-1 overflow-hidden animate-tab-in"
+                    style={{ gap: 1, background: 'var(--border-0)' }}
+                >
+                    {/* Query textarea */}
+                    <div
+                        className="flex flex-col"
+                        style={{ flex: 3, background: 'var(--bg-1)', minWidth: 0 }}
+                    >
+                        <div
+                            style={{
+                                padding: '4px 12px',
+                                fontSize: 10,
+                                fontWeight: 700,
+                                letterSpacing: '0.08em',
+                                textTransform: 'uppercase',
+                                color: 'var(--text-2)',
+                                borderBottom: '1px solid var(--border-0)',
+                            }}
+                        >
+                            Query
+                        </div>
+                        <textarea
+                            className="flex-1 w-full bg-transparent outline-none resize-none"
+                            style={{
+                                padding: '12px',
+                                fontFamily: "'JetBrains Mono Variable', monospace",
+                                fontSize: 'var(--text-base)',
+                                color: 'var(--text-0)',
+                                lineHeight: 1.7,
+                            }}
+                            value={editing.graphql.query}
+                            onChange={e => patchGraphQL({ query: e.target.value })}
+                            spellCheck={false}
+                        />
+                    </div>
+
+                    {/* Variables textarea */}
+                    <div
+                        className="flex flex-col"
+                        style={{ flex: 2, background: 'var(--bg-1)', minWidth: 0 }}
+                    >
+                        <div
+                            style={{
+                                padding: '4px 12px',
+                                fontSize: 10,
+                                fontWeight: 700,
+                                letterSpacing: '0.08em',
+                                textTransform: 'uppercase',
+                                color: 'var(--text-2)',
+                                borderBottom: '1px solid var(--border-0)',
+                            }}
+                        >
+                            Variables{' '}
+                            <span
+                                style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}
+                            >
+                                (JSON)
+                            </span>
+                        </div>
+                        <textarea
+                            className="flex-1 w-full bg-transparent outline-none resize-none"
+                            style={{
+                                padding: '12px',
+                                fontFamily: "'JetBrains Mono Variable', monospace",
+                                fontSize: 'var(--text-base)',
+                                color: 'var(--text-0)',
+                                lineHeight: 1.7,
+                            }}
+                            value={editing.graphql.variables}
+                            onChange={e => patchGraphQL({ variables: e.target.value })}
+                            spellCheck={false}
+                            placeholder="{}"
+                        />
+                        {varsError && (
+                            <div
+                                style={{
+                                    padding: '4px 10px',
+                                    fontSize: 10.5,
+                                    color: 'var(--red)',
+                                    background: 'color-mix(in srgb, var(--red) 8%, var(--bg-1))',
+                                    borderTop:
+                                        '1px solid color-mix(in srgb, var(--red) 20%, transparent)',
+                                    flexShrink: 0,
+                                }}
+                            >
+                                {varsError}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Schema tab */}
+            {gqlTab === 'schema' && (
+                <div className="flex flex-col flex-1 overflow-hidden animate-tab-in">
+                    {schemaError && (
+                        <div
+                            style={{
+                                padding: '6px 14px',
+                                fontSize: 11.5,
+                                color: 'var(--red)',
+                                background: 'color-mix(in srgb, var(--red) 8%, var(--bg-1))',
+                                borderBottom:
+                                    '1px solid color-mix(in srgb, var(--red) 20%, transparent)',
+                                flexShrink: 0,
+                            }}
+                        >
+                            {schemaError}
+                        </div>
+                    )}
+                    {!schemaData && !schemaError && (
+                        <div
+                            className="flex-1 flex flex-col items-center justify-center gap-3"
+                            style={{ color: 'var(--text-2)' }}
+                        >
+                            <RefreshCw style={{ width: 28, height: 28, opacity: 0.3 }} />
+                            <span style={{ fontSize: 'var(--text-sm)' }}>
+                                Click <strong style={{ color: 'var(--purple)' }}>Schema</strong> in
+                                the toolbar to fetch available types
+                            </span>
+                        </div>
+                    )}
+                    {schemaData && (
+                        <div className="flex-1 overflow-y-auto" style={{ padding: 16 }}>
+                            <GqlSchemaSection title="Query" fields={schemaData.queryFields} />
+                            <GqlSchemaSection title="Mutation" fields={schemaData.mutationFields} />
+                            <GqlSchemaSection
+                                title="Subscription"
+                                fields={schemaData.subscriptionFields}
+                            />
+                            {totalSchemaFields === 0 && (
+                                <div style={{ color: 'var(--text-2)', fontSize: 'var(--text-sm)' }}>
+                                    No query/mutation/subscription fields found.
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
