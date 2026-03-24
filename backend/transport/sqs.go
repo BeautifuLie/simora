@@ -36,6 +36,9 @@ type SqsSendRequest struct {
 	DelaySeconds int32
 	Attributes   []SqsMessageAttribute
 	Auth         SqsAuth
+	// FIFO-only fields (ignored for standard queues)
+	MessageGroupID         string
+	MessageDeduplicationID string
 }
 
 // SqsReceiveRequest configures a one-shot receive from an SQS queue.
@@ -120,6 +123,16 @@ func SqsSend(ctx context.Context, req SqsSendRequest) (string, error) {
 		MessageBody:       aws.String(req.Body),
 		DelaySeconds:      req.DelaySeconds,
 		MessageAttributes: buildSqsAttrs(req.Attributes),
+	}
+
+	if strings.HasSuffix(strings.ToLower(req.QueueURL), ".fifo") {
+		if req.MessageGroupID != "" {
+			input.MessageGroupId = aws.String(req.MessageGroupID)
+		}
+
+		if req.MessageDeduplicationID != "" {
+			input.MessageDeduplicationId = aws.String(req.MessageDeduplicationID)
+		}
 	}
 
 	sendCtx, cancel := context.WithTimeout(ctx, sqsSendTimeout)
