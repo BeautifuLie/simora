@@ -32,12 +32,12 @@ func (s *KafkaService) Produce(req transport.KafkaProduceRequest) (string, error
 	return result, nil
 }
 
-// Consume reads up to maxMessages messages from a Kafka topic.
-func (s *KafkaService) Consume(req transport.KafkaConsumeRequest, maxMessages int) (string, error) {
+// Consume reads up to req.MaxMessages messages from a Kafka topic.
+func (s *KafkaService) Consume(req transport.KafkaConsumeRequest) (string, error) {
 	ctx, cancel := context.WithTimeout(s.appCtx.Get(), kafkaConsumeTimeout)
 	defer cancel()
 
-	result, err := transport.KafkaConsume(ctx, req, maxMessages)
+	result, err := transport.KafkaConsume(ctx, req, req.MaxMessages)
 	if err != nil {
 		return "", fmt.Errorf("kafka consume: %w", err)
 	}

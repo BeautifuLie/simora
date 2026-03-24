@@ -41,11 +41,12 @@ type KafkaProduceRequest struct {
 
 // KafkaConsumeRequest configures a one-shot consume poll.
 type KafkaConsumeRequest struct {
-	Bootstrap string
-	Topic     string
-	Group     string
-	Offset    string // "earliest" | "latest"
-	Auth      KafkaAuth
+	Bootstrap   string
+	Topic       string
+	Group       string
+	Offset      string // "earliest" | "latest"
+	MaxMessages int    // 0 → kafkaDefaultMaxMsgs
+	Auth        KafkaAuth
 }
 
 // buildSaramaConfig creates a sarama.Config with SASL / TLS applied.
@@ -262,11 +263,23 @@ func drainPartition(pc sarama.PartitionConsumer, idleTimeout time.Duration, maxM
 
 // KafkaConsume fetches up to maxMessages messages from a topic.
 //
-// Strategy: connect, then for each partition start consuming from the
-// requested offset. Use an idle timeout (no new message within N seconds)
-// to decide the partition is drained. This avoids relying on ListOffsets
-// which may not be available in all security configurations.
+// When req.Group is non-empty a consumer group is used (offsets are committed
+// to Kafka after the poll, allowing resumable consumption across calls).
+// Without a group, the function performs a stateless partition scan.
 func KafkaConsume(ctx context.Context, req KafkaConsumeRequest, maxMessages int) (string, error) {
+	if maxMessages <= 0 {
+		maxMessages = kafkaDefaultMaxMsgs
+	}
+
+	if req.Group != "" {
+		return kafkaConsumeGroup(ctx, req, maxMessages)
+	}
+
+	return kafkaConsumeStateless(ctx, req, maxMessages)
+}
+
+// kafkaConsumeStateless is the original partition-scan consumer (no group).
+func kafkaConsumeStateless(ctx context.Context, req KafkaConsumeRequest, maxMessages int) (string, error) {
 	brokers := splitBrokers(req.Bootstrap)
 
 	cfg, err := buildSaramaConfig(req.Auth)
@@ -280,12 +293,14 @@ func KafkaConsume(ctx context.Context, req KafkaConsumeRequest, maxMessages int)
 	if err != nil {
 		return "", fmt.Errorf("connect to Kafka: %w", err)
 	}
+
 	defer client.Close()
 
 	consumer, err := sarama.NewConsumerFromClient(client)
 	if err != nil {
 		return "", fmt.Errorf("create consumer: %w", err)
 	}
+
 	defer consumer.Close()
 
 	partitions, err := consumer.Partitions(req.Topic)
@@ -302,9 +317,120 @@ func KafkaConsume(ctx context.Context, req KafkaConsumeRequest, maxMessages int)
 
 	result := map[string]any{
 		"status":   "consumed",
+		"mode":     "stateless",
 		"topic":    req.Topic,
 		"count":    len(messages),
 		"messages": messages,
+	}
+
+	b, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("marshal consume result: %w", err)
+	}
+
+	return string(b), nil
+}
+
+// groupHandler implements sarama.ConsumerGroupHandler and collects messages
+// until maxMessages is reached or the context is cancelled.
+type groupHandler struct {
+	maxMessages int
+	messages    []kafkaMsg
+	done        chan struct{}
+}
+
+func (h *groupHandler) Setup(_ sarama.ConsumerGroupSession) error   { return nil }
+func (h *groupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
+
+func (h *groupHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	for {
+		select {
+		case m, ok := <-claim.Messages():
+			if !ok {
+				return nil
+			}
+
+			h.messages = append(h.messages, kafkaMsg{
+				Partition: m.Partition,
+				Offset:    m.Offset,
+				Key:       string(m.Key),
+				Value:     string(m.Value),
+				Timestamp: m.Timestamp.Format(time.RFC3339),
+			})
+
+			session.MarkMessage(m, "")
+
+			if len(h.messages) >= h.maxMessages {
+				select {
+				case h.done <- struct{}{}:
+				default:
+				}
+
+				return nil
+			}
+
+		case <-session.Context().Done():
+			return nil
+		}
+	}
+}
+
+// kafkaConsumeGroup uses a Kafka consumer group to poll messages, committing
+// offsets so subsequent calls resume from where the previous one left off.
+func kafkaConsumeGroup(ctx context.Context, req KafkaConsumeRequest, maxMessages int) (string, error) {
+	brokers := splitBrokers(req.Bootstrap)
+
+	cfg, err := buildSaramaConfig(req.Auth)
+	if err != nil {
+		return "", err
+	}
+
+	cfg.Consumer.Return.Errors = true
+	cfg.Consumer.Offsets.AutoCommit.Enable = true
+
+	startOffset, idleTimeout := consumeOffsetParams(req.Offset)
+	cfg.Consumer.Offsets.Initial = startOffset
+
+	cg, err := sarama.NewConsumerGroup(brokers, req.Group, cfg)
+	if err != nil {
+		return "", fmt.Errorf("create consumer group: %w", err)
+	}
+
+	defer cg.Close()
+
+	handler := &groupHandler{
+		maxMessages: maxMessages,
+		done:        make(chan struct{}, 1),
+	}
+
+	// Cancel the context when we have enough messages or the idle timer fires.
+	pollCtx, cancel := context.WithTimeout(ctx, idleTimeout+kafkaGroupJoinTimeout)
+	defer cancel()
+
+	consumeErr := make(chan error, 1)
+
+	go func() {
+		consumeErr <- cg.Consume(pollCtx, []string{req.Topic}, handler)
+	}()
+
+	select {
+	case <-handler.done:
+		cancel()
+	case <-pollCtx.Done():
+	}
+
+	// Wait for the Consume goroutine to exit.
+	if err = <-consumeErr; err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+		return "", fmt.Errorf("consumer group error: %w", err)
+	}
+
+	result := map[string]any{
+		"status":   "consumed",
+		"mode":     "group",
+		"group":    req.Group,
+		"topic":    req.Topic,
+		"count":    len(handler.messages),
+		"messages": handler.messages,
 	}
 
 	b, err := json.MarshalIndent(result, "", "  ")

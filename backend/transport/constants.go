@@ -21,6 +21,9 @@ const (
 	kafkaOffsetEarliest  = "earliest"
 	kafkaFormatProto     = "proto"
 	kafkaInlineProtoFile = "inline.proto"
+
+	kafkaGroupJoinTimeout = 15 * time.Second // time to wait for group rebalance
+	kafkaDefaultMaxMsgs   = 50
 )
 
 // Kafka SASL mechanism strings (as sent from the frontend).

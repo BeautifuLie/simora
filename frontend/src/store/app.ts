@@ -307,8 +307,9 @@ function defaultKafka(): KafkaConfig {
         message: '',
         headers: [],
         mode: 'produce',
-        group: 'simora-group',
+        group: '',
         offset: 'latest',
+        maxMessages: 50,
         saslMechanism: 'none',
         saslUsername: '',
         saslPassword: '',
@@ -1142,16 +1143,14 @@ export const useAppStore = create<AppState>((set, get) => ({
                           );
                 } else {
                     bodyStr = isWails
-                        ? await KafkaService.Consume(
-                              {
-                                  Bootstrap: k.bootstrap,
-                                  Topic: k.topic,
-                                  Group: k.group,
-                                  Offset: k.offset,
-                                  Auth: auth,
-                              } as any,
-                              50
-                          )
+                        ? await KafkaService.Consume({
+                              Bootstrap: k.bootstrap,
+                              Topic: k.topic,
+                              Group: k.group,
+                              Offset: k.offset,
+                              MaxMessages: k.maxMessages || 50,
+                              Auth: auth,
+                          } as any)
                         : JSON.stringify(
                               { status: 'consumed', topic: k.topic, count: 0, messages: [] },
                               null,
