@@ -18,6 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recursive folder operations now have a depth limit of 100 to prevent stack overflow
 - Version in status bar is now loaded dynamically instead of being hardcoded
 - GraphQL responses with a top-level `errors` array now show a warning banner
+- `parseCollection` now returns a typed `{ data, error }` result instead of `null`
+- Active sidebar org/project/collection IDs are now reset when the entity is deleted
+- gRPC reflection now caps file descriptors at 100 and resolves cross-file imports correctly
+- Settings load failure is now shown as a warning banner in Settings → About
+- Data load failure is now shown as an error banner in the sidebar
+
+### Changed
+
+- `ErrorBoundary` extracted to `components/ui/ErrorBoundary.tsx` and reused across the app
+- gRPC, Kafka, and SQS panels each have their own `ErrorBoundary` so a crash in one does not
+  affect the others
 
 ## [v0.1.0] - 2026-03-24
 
