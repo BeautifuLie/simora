@@ -22,6 +22,22 @@ export namespace domain {
 	        this.headerValue = source["headerValue"];
 	    }
 	}
+	export class CollectionVariable {
+	    key: string;
+	    value: string;
+	    enabled: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new CollectionVariable(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.value = source["value"];
+	        this.enabled = source["enabled"];
+	    }
+	}
 	export class Folder {
 	    id: string;
 	    name: string;
@@ -337,6 +353,7 @@ export namespace domain {
 	    name: string;
 	    requests: Request[];
 	    folders: Folder[];
+	    variables?: CollectionVariable[];
 	
 	    static createFrom(source: any = {}) {
 	        return new Collection(source);
@@ -348,6 +365,7 @@ export namespace domain {
 	        this.name = source["name"];
 	        this.requests = this.convertValues(source["requests"], Request);
 	        this.folders = this.convertValues(source["folders"], Folder);
+	        this.variables = this.convertValues(source["variables"], CollectionVariable);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -368,6 +386,7 @@ export namespace domain {
 		    return a;
 		}
 	}
+	
 	
 	
 	
@@ -678,6 +697,8 @@ export namespace transport {
 	    DelaySeconds: number;
 	    Attributes: SqsMessageAttribute[];
 	    Auth: SqsAuth;
+	    MessageGroupID: string;
+	    MessageDeduplicationID: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SqsSendRequest(source);
@@ -691,6 +712,8 @@ export namespace transport {
 	        this.DelaySeconds = source["DelaySeconds"];
 	        this.Attributes = this.convertValues(source["Attributes"], SqsMessageAttribute);
 	        this.Auth = this.convertValues(source["Auth"], SqsAuth);
+	        this.MessageGroupID = source["MessageGroupID"];
+	        this.MessageDeduplicationID = source["MessageDeduplicationID"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -34,4 +34,6 @@ export function RenameProject(arg1:string,arg2:string,arg3:string):Promise<void>
 
 export function RenameRequest(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<void>;
 
+export function UpdateCollectionVariables(arg1:string,arg2:string,arg3:string,arg4:Array<domain.CollectionVariable>):Promise<void>;
+
 export function UpdateRequest(arg1:string,arg2:string,arg3:string,arg4:domain.Request):Promise<void>;
