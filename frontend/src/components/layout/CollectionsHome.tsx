@@ -250,6 +250,53 @@ function exportCollectionToPostman(col: Collection): string {
     return JSON.stringify(postman, null, 2);
 }
 
+// ── Export: Collection → Insomnia v4 JSON ──────────────────────────────────
+
+function exportCollectionToInsomnia(col: Collection): string {
+    const workspaceId = `wrk_${col.id.replace(/-/g, '').slice(0, 16)}`;
+    const resources: object[] = [
+        { _id: workspaceId, _type: 'workspace', name: col.name, parentId: null },
+    ];
+
+    function addRequests(reqs: Request[], parentId: string) {
+        for (const req of reqs ?? []) {
+            resources.push({
+                _id: `req_${req.id.replace(/-/g, '').slice(0, 16)}`,
+                _type: 'request',
+                parentId,
+                name: req.name,
+                method: req.method ?? 'GET',
+                url: req.url ?? '',
+                body: req.body ? { mimeType: 'application/json', text: req.body } : {},
+                headers: (req.headers ?? [])
+                    .filter((h: any) => h.enabled)
+                    .map((h: any) => ({ name: h.key, value: h.value })),
+            });
+        }
+    }
+
+    function addFolder(folder: Folder, parentId: string) {
+        const folderId = `fld_${folder.id.replace(/-/g, '').slice(0, 16)}`;
+        resources.push({
+            _id: folderId,
+            _type: 'request_group',
+            parentId,
+            name: folder.name,
+        });
+        addRequests(folder.requests ?? [], folderId);
+        for (const sub of folder.folders ?? []) addFolder(sub, folderId);
+    }
+
+    addRequests(col.requests ?? [], workspaceId);
+    for (const folder of col.folders ?? []) addFolder(folder, workspaceId);
+
+    return JSON.stringify(
+        { _type: 'export', __export_format: 4, __export_date: new Date().toISOString(), resources },
+        null,
+        2
+    );
+}
+
 function downloadJson(content: string, filename: string) {
     const blob = new Blob([content], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -328,10 +375,19 @@ function CollectionTile({
             action: () => duplicateCollection(col),
         },
         {
-            label: 'Export',
+            label: 'Export as Postman',
             icon: ({ style }) => <Download style={style} />,
             action: () =>
                 downloadJson(exportCollectionToPostman(col), `${col.name}.postman_collection.json`),
+        },
+        {
+            label: 'Export as Insomnia',
+            icon: ({ style }) => <Download style={style} />,
+            action: () =>
+                downloadJson(
+                    exportCollectionToInsomnia(col),
+                    `${col.name}.insomnia_collection.json`
+                ),
         },
         { label: 'divider' as any, action: () => {}, divider: true },
         {
