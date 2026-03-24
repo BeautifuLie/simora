@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Resizable response panel now persists its split position across sessions (`autoSaveId`); added explicit `maxSize={72}` constraint so neither panel can be collapsed below 28%
 - WebSocket protocol support: connect to `ws://` / `wss://` endpoints, send an optional initial message, collect messages (configurable limit and idle timeout), and view results in the response panel
 - gRPC server-streaming RPCs are now supported: all response messages are collected (up to 100) and returned as a JSON array; the status bar shows "N messages" instead of "200 OK"
 - Confluent Schema Registry integration for Kafka: produce messages as Avro (JSON → Avro with wire-format header), auto-decode Avro messages on consume when a registry URL is configured
