@@ -1754,6 +1754,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 folders: (f.folders ?? []).map((sub: any) => deepCopyFolder(sub)),
             };
         }
+        let copy: any = null;
         set(s => ({
             organizations: s.organizations.map(org => {
                 if (org.id !== orgId) return org;
@@ -1767,7 +1768,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                                 if (col.id !== collectionId) return col;
                                 const src = col.folders?.find(f => f.id === folderId);
                                 if (!src) return col;
-                                const copy = deepCopyFolder(src);
+                                copy = deepCopyFolder(src);
                                 return { ...col, folders: [...(col.folders ?? []), copy] };
                             }),
                         };
@@ -1775,6 +1776,31 @@ export const useAppStore = create<AppState>((set, get) => ({
                 };
             }) as Organization[],
         }));
+        if (isWails && copy) {
+            async function persistFolder(f: any, parentFolderId: string) {
+                await OrganizationService.CreateFolder(
+                    orgId,
+                    projectId,
+                    collectionId,
+                    parentFolderId,
+                    f.id,
+                    f.name
+                );
+                for (const r of f.requests ?? []) {
+                    await OrganizationService.CreateRequest(
+                        orgId,
+                        projectId,
+                        collectionId,
+                        f.id,
+                        r as any
+                    );
+                }
+                for (const sub of f.folders ?? []) {
+                    await persistFolder(sub, f.id);
+                }
+            }
+            persistFolder(copy, '').catch(console.error);
+        }
     },
 
     moveRequest: (requestId, toCollectionId, toFolderId) => {
