@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Import parser now returns a specific hint for OpenAPI/Swagger, Postman v1, and HAR formats instead of a generic "unrecognised format" message
+- Switching or closing a tab now syncs the sidebar org/project selection to match the newly active tab, preventing stale navigation after org or project deletion
+- Deleting an org or project with multiple tabs open now keeps the sidebar navigation consistent with the new active tab
+- gRPC server reflection now caps the number of returned services and methods (200 each) to prevent runaway memory growth from adversarial servers
+
 ### Added
 
 - `Cmd/Ctrl+D` keyboard shortcut to duplicate the active tab
