@@ -561,6 +561,42 @@ export namespace transport {
 	        this.TLS = source["TLS"];
 	    }
 	}
+	export class SchemaRegistryConfig {
+	    URL: string;
+	    Subject: string;
+	    Username: string;
+	    Password: string;
+
+	    static createFrom(source: any = {}) {
+	        return new SchemaRegistryConfig(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.URL = source["URL"];
+	        this.Subject = source["Subject"];
+	        this.Username = source["Username"];
+	        this.Password = source["Password"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class KafkaConsumeRequest {
 	    Bootstrap: string;
 	    Topic: string;
@@ -568,11 +604,12 @@ export namespace transport {
 	    Offset: string;
 	    MaxMessages: number;
 	    Auth: KafkaAuth;
-	
+	    SchemaRegistry: SchemaRegistryConfig;
+
 	    static createFrom(source: any = {}) {
 	        return new KafkaConsumeRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.Bootstrap = source["Bootstrap"];
@@ -581,6 +618,7 @@ export namespace transport {
 	        this.Offset = source["Offset"];
 	        this.MaxMessages = source["MaxMessages"];
 	        this.Auth = this.convertValues(source["Auth"], KafkaAuth);
+	        this.SchemaRegistry = this.convertValues(source["SchemaRegistry"], SchemaRegistryConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -611,11 +649,12 @@ export namespace transport {
 	    MessageFormat: string;
 	    ProtoSchema: string;
 	    ProtoMessageType: string;
-	
+	    SchemaRegistry: SchemaRegistryConfig;
+
 	    static createFrom(source: any = {}) {
 	        return new KafkaProduceRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.Bootstrap = source["Bootstrap"];
@@ -627,6 +666,7 @@ export namespace transport {
 	        this.MessageFormat = source["MessageFormat"];
 	        this.ProtoSchema = source["ProtoSchema"];
 	        this.ProtoMessageType = source["ProtoMessageType"];
+	        this.SchemaRegistry = this.convertValues(source["SchemaRegistry"], SchemaRegistryConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
