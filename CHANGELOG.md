@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Drag-and-drop reordering of requests and folders in the sidebar with visual drop indicators
 - HTTP cookie jar management panel in Settings: view all stored cookies, delete individual entries, or clear the entire jar
 - SQS FIFO queue support: Message Group ID and Deduplication ID fields appear automatically when the queue URL ends with `.fifo`
+- GraphQL schema introspection: "Schema" button runs an introspection query and shows available Query/Mutation/Subscription fields in a dedicated tab
+- GraphQL variables panel validates JSON inline and shows parse errors
+- GraphQL error formatting in the response panel now shows each error message individually
 
 ## [v0.1.1] - 2026-03-24
 
