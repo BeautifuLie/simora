@@ -316,6 +316,8 @@ function defaultSqs(): SqsConfig {
         accessKeyId: '',
         secretAccessKey: '',
         sessionToken: '',
+        messageGroupId: '',
+        messageDeduplicationId: '',
     };
 }
 
@@ -1217,6 +1219,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                         DelaySeconds: sq.delaySeconds,
                         Attributes: attrs,
                         Auth: sqsAuth,
+                        MessageGroupID: sq.messageGroupId,
+                        MessageDeduplicationID: sq.messageDeduplicationId,
                     } as any);
                 } else {
                     bodyStr = JSON.stringify(
