@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - gRPC server-streaming RPCs are now supported: all response messages are collected (up to 100) and returned as a JSON array; the status bar shows "N messages" instead of "200 OK"
+- Confluent Schema Registry integration for Kafka: produce messages as Avro (JSON → Avro with wire-format header), auto-decode Avro messages on consume when a registry URL is configured
 
 ### Fixed
 

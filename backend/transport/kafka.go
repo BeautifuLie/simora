@@ -3,20 +3,35 @@ package transport
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/bufbuild/protocompile"
+	avro "github.com/hamba/avro/v2"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/dynamicpb"
 )
+
+// SchemaRegistryConfig holds connection details for a Confluent-compatible
+// Schema Registry (used for Avro serialisation / deserialisation).
+type SchemaRegistryConfig struct {
+	URL      string // e.g. http://localhost:8081
+	Subject  string // subject name used during produce (e.g. my-topic-value)
+	Username string
+	Password string
+}
 
 // KafkaAuth holds SASL / TLS configuration.
 type KafkaAuth struct {
@@ -34,19 +49,21 @@ type KafkaProduceRequest struct {
 	Message          string
 	Headers          map[string]string
 	Auth             KafkaAuth
-	MessageFormat    string // "json" | "proto"
+	MessageFormat    string // "json" | "proto" | "avro"
 	ProtoSchema      string
 	ProtoMessageType string
+	SchemaRegistry   SchemaRegistryConfig
 }
 
 // KafkaConsumeRequest configures a one-shot consume poll.
 type KafkaConsumeRequest struct {
-	Bootstrap   string
-	Topic       string
-	Group       string
-	Offset      string // "earliest" | "latest"
-	MaxMessages int    // 0 → kafkaDefaultMaxMsgs
-	Auth        KafkaAuth
+	Bootstrap      string
+	Topic          string
+	Group          string
+	Offset         string // "earliest" | "latest"
+	MaxMessages    int    // 0 → kafkaDefaultMaxMsgs
+	Auth           KafkaAuth
+	SchemaRegistry SchemaRegistryConfig
 }
 
 // buildSaramaConfig creates a sarama.Config with SASL / TLS applied.
@@ -144,6 +161,201 @@ func protoSerialise(ctx context.Context, schema, messageType, jsonPayload string
 	return nil, fmt.Errorf("message type %q not found in schema", messageType)
 }
 
+// schemaRegistryGet performs an authenticated GET request to a Schema Registry URL.
+func schemaRegistryGet(ctx context.Context, rawURL, username, password string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+
+	if username != "" {
+		req.SetBasicAuth(username, password)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("schema registry request: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("schema registry returned HTTP %d: %s", resp.StatusCode, body)
+	}
+
+	return body, nil
+}
+
+// FetchSchemaBySubject fetches the latest schema for a subject from the registry.
+// It returns the schema ID and schema JSON string.
+func FetchSchemaBySubject(ctx context.Context, cfg SchemaRegistryConfig) (int, string, error) {
+	endpoint := strings.TrimRight(cfg.URL, "/") +
+		"/subjects/" + url.PathEscape(cfg.Subject) + "/versions/latest"
+
+	body, err := schemaRegistryGet(ctx, endpoint, cfg.Username, cfg.Password)
+	if err != nil {
+		return 0, "", fmt.Errorf("fetch schema by subject: %w", err)
+	}
+
+	var resp struct {
+		ID     int    `json:"id"`
+		Schema string `json:"schema"`
+	}
+
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return 0, "", fmt.Errorf("parse schema registry response: %w", err)
+	}
+
+	return resp.ID, resp.Schema, nil
+}
+
+// FetchSchemaByID fetches a schema from the registry by its numeric ID.
+func FetchSchemaByID(ctx context.Context, baseURL string, id int, username, password string) (string, error) {
+	endpoint := strings.TrimRight(baseURL, "/") + "/schemas/ids/" + strconv.Itoa(id)
+
+	body, err := schemaRegistryGet(ctx, endpoint, username, password)
+	if err != nil {
+		return "", fmt.Errorf("fetch schema by ID: %w", err)
+	}
+
+	var resp struct {
+		Schema string `json:"schema"`
+	}
+
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return "", fmt.Errorf("parse schema registry response: %w", err)
+	}
+
+	return resp.Schema, nil
+}
+
+// AvroSerialise encodes a JSON string to Confluent wire-format Avro bytes
+// (magic byte 0x00 + 4-byte big-endian schema ID + Avro binary payload).
+func AvroSerialise(schemaJSON string, schemaID int, jsonPayload string) ([]byte, error) {
+	schema, err := avro.Parse(schemaJSON)
+	if err != nil {
+		return nil, fmt.Errorf("parse avro schema: %w", err)
+	}
+
+	var data any
+
+	if err := json.Unmarshal([]byte(jsonPayload), &data); err != nil {
+		return nil, fmt.Errorf("parse JSON payload: %w", err)
+	}
+
+	avroBytes, err := avro.Marshal(schema, data)
+	if err != nil {
+		return nil, fmt.Errorf("avro marshal: %w", err)
+	}
+
+	buf := make([]byte, 1+kafkaSchemaIDLen+len(avroBytes))
+	buf[0] = kafkaSchemaMagicByte
+	binary.BigEndian.PutUint32(buf[1:1+kafkaSchemaIDLen], uint32(schemaID)) //nolint:gosec
+	copy(buf[1+kafkaSchemaIDLen:], avroBytes)
+
+	return buf, nil
+}
+
+// AvroDeserialise decodes raw Avro binary bytes (without Confluent header)
+// to a JSON string using the provided schema JSON.
+func AvroDeserialise(schemaJSON string, data []byte) (string, error) {
+	schema, err := avro.Parse(schemaJSON)
+	if err != nil {
+		return "", fmt.Errorf("parse avro schema: %w", err)
+	}
+
+	var result any
+
+	if err := avro.Unmarshal(schema, data, &result); err != nil {
+		return "", fmt.Errorf("avro unmarshal: %w", err)
+	}
+
+	b, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("marshal to JSON: %w", err)
+	}
+
+	return string(b), nil
+}
+
+// DecodeAvroMessages replaces Confluent wire-format Avro values with their
+// JSON representation for each message that carries the magic byte 0x00.
+// Non-Avro messages are left unchanged. Errors for individual messages are
+// silently skipped so that partial decodes are still returned.
+func DecodeAvroMessages(ctx context.Context, msgs []KafkaMsg, cfg SchemaRegistryConfig) []KafkaMsg {
+	if cfg.URL == "" {
+		return msgs
+	}
+
+	schemaCache := map[int]string{}
+
+	for i, m := range msgs {
+		raw := []byte(m.Value)
+
+		if len(raw) < 1+kafkaSchemaIDLen || raw[0] != kafkaSchemaMagicByte {
+			continue
+		}
+
+		id := int(binary.BigEndian.Uint32(raw[1 : 1+kafkaSchemaIDLen]))
+
+		schemaJSON, ok := schemaCache[id]
+		if !ok {
+			fetched, err := FetchSchemaByID(ctx, cfg.URL, id, cfg.Username, cfg.Password)
+			if err != nil {
+				msgs[i].Value = base64.StdEncoding.EncodeToString(raw)
+				continue
+			}
+
+			schemaCache[id] = fetched
+			schemaJSON = fetched
+		}
+
+		decoded, err := AvroDeserialise(schemaJSON, raw[1+kafkaSchemaIDLen:])
+		if err != nil {
+			msgs[i].Value = base64.StdEncoding.EncodeToString(raw)
+			continue
+		}
+
+		msgs[i].Value = decoded
+	}
+
+	return msgs
+}
+
+// produceBytes serialises req.Message to bytes according to the configured format.
+func produceBytes(ctx context.Context, req KafkaProduceRequest) ([]byte, error) {
+	switch strings.ToLower(req.MessageFormat) {
+	case kafkaFormatProto:
+		b, err := protoSerialise(ctx, req.ProtoSchema, req.ProtoMessageType, req.Message)
+		if err != nil {
+			return nil, fmt.Errorf("proto: %w", err)
+		}
+
+		return b, nil
+
+	case kafkaFormatAvro:
+		schemaID, schemaJSON, err := FetchSchemaBySubject(ctx, req.SchemaRegistry)
+		if err != nil {
+			return nil, fmt.Errorf("fetch schema: %w", err)
+		}
+
+		b, err := AvroSerialise(schemaJSON, schemaID, req.Message)
+		if err != nil {
+			return nil, fmt.Errorf("avro: %w", err)
+		}
+
+		return b, nil
+
+	default: // "json" or empty — send as-is
+		return []byte(req.Message), nil
+	}
+}
+
 // KafkaProduce sends a single message to a Kafka topic.
 func KafkaProduce(ctx context.Context, req KafkaProduceRequest) (string, error) {
 	brokers := splitBrokers(req.Bootstrap)
@@ -164,16 +376,9 @@ func KafkaProduce(ctx context.Context, req KafkaProduceRequest) (string, error) 
 	defer producer.Close()
 
 	// Serialise the message payload.
-	var msgBytes []byte
-
-	switch strings.ToLower(req.MessageFormat) {
-	case kafkaFormatProto:
-		msgBytes, err = protoSerialise(ctx, req.ProtoSchema, req.ProtoMessageType, req.Message)
-		if err != nil {
-			return "", fmt.Errorf("proto serialise: %w", err)
-		}
-	default: // "json" or empty
-		msgBytes = []byte(req.Message)
+	msgBytes, err := produceBytes(ctx, req)
+	if err != nil {
+		return "", fmt.Errorf("serialise message: %w", err)
 	}
 
 	// Build sarama message headers.
@@ -213,7 +418,7 @@ func KafkaProduce(ctx context.Context, req KafkaProduceRequest) (string, error) 
 	return string(b), nil
 }
 
-type kafkaMsg struct {
+type KafkaMsg struct {
 	Partition int32  `json:"partition"`
 	Offset    int64  `json:"offset"`
 	Key       string `json:"key"`
@@ -223,8 +428,8 @@ type kafkaMsg struct {
 
 // drainPartition reads up to maxMessages from a partition consumer until the
 // channel is closed or the idle timer fires (no new messages for idleTimeout).
-func drainPartition(pc sarama.PartitionConsumer, idleTimeout time.Duration, maxMessages int) []kafkaMsg {
-	msgs := make([]kafkaMsg, 0, maxMessages)
+func drainPartition(pc sarama.PartitionConsumer, idleTimeout time.Duration, maxMessages int) []KafkaMsg {
+	msgs := make([]KafkaMsg, 0, maxMessages)
 	idle := time.NewTimer(idleTimeout)
 
 	defer idle.Stop()
@@ -236,7 +441,7 @@ func drainPartition(pc sarama.PartitionConsumer, idleTimeout time.Duration, maxM
 				return msgs
 			}
 
-			msgs = append(msgs, kafkaMsg{
+			msgs = append(msgs, KafkaMsg{
 				Partition: m.Partition,
 				Offset:    m.Offset,
 				Key:       string(m.Key),
@@ -315,6 +520,8 @@ func kafkaConsumeStateless(ctx context.Context, req KafkaConsumeRequest, maxMess
 		return "", firstErr
 	}
 
+	messages = DecodeAvroMessages(ctx, messages, req.SchemaRegistry)
+
 	result := map[string]any{
 		"status":   "consumed",
 		"mode":     "stateless",
@@ -335,7 +542,7 @@ func kafkaConsumeStateless(ctx context.Context, req KafkaConsumeRequest, maxMess
 // until maxMessages is reached or the context is cancelled.
 type groupHandler struct {
 	maxMessages int
-	messages    []kafkaMsg
+	messages    []KafkaMsg
 	done        chan struct{}
 }
 
@@ -350,7 +557,7 @@ func (h *groupHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim s
 				return nil
 			}
 
-			h.messages = append(h.messages, kafkaMsg{
+			h.messages = append(h.messages, KafkaMsg{
 				Partition: m.Partition,
 				Offset:    m.Offset,
 				Key:       string(m.Key),
@@ -424,13 +631,15 @@ func kafkaConsumeGroup(ctx context.Context, req KafkaConsumeRequest, maxMessages
 		return "", fmt.Errorf("consumer group error: %w", err)
 	}
 
+	decoded := DecodeAvroMessages(ctx, handler.messages, req.SchemaRegistry)
+
 	result := map[string]any{
 		"status":   "consumed",
 		"mode":     "group",
 		"group":    req.Group,
 		"topic":    req.Topic,
-		"count":    len(handler.messages),
-		"messages": handler.messages,
+		"count":    len(decoded),
+		"messages": decoded,
 	}
 
 	b, err := json.MarshalIndent(result, "", "  ")
@@ -462,8 +671,8 @@ func collectMessages(
 	startOffset int64,
 	idleTimeout time.Duration,
 	maxMessages int,
-) ([]kafkaMsg, error) {
-	messages := make([]kafkaMsg, 0, maxMessages)
+) ([]KafkaMsg, error) {
+	messages := make([]KafkaMsg, 0, maxMessages)
 
 	var firstErr error
 

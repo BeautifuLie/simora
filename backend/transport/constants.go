@@ -34,7 +34,13 @@ const (
 
 	kafkaOffsetEarliest  = "earliest"
 	kafkaFormatProto     = "proto"
+	kafkaFormatAvro      = "avro"
 	kafkaInlineProtoFile = "inline.proto"
+
+	// kafkaSchemaMagicByte is the first byte of the Confluent wire format
+	// (magic byte 0x00 followed by 4-byte big-endian schema ID).
+	kafkaSchemaMagicByte = byte(0x00)
+	kafkaSchemaIDLen     = 4
 
 	kafkaGroupJoinTimeout = 15 * time.Second // time to wait for group rebalance
 	kafkaDefaultMaxMsgs   = 50
