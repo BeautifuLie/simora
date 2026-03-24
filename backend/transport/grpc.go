@@ -359,6 +359,129 @@ func extractMethods(fd protoreflect.FileDescriptor, serviceName string) ([]strin
 	return nil, fmt.Errorf("service %q not found", serviceName)
 }
 
+// ── Descriptor tree ────────────────────────────────────────────────────────
+
+// GrpcField is a single field in a protobuf message.
+type GrpcField struct {
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	Repeated bool   `json:"repeated"`
+	Optional bool   `json:"optional"`
+}
+
+// GrpcMethodDesc describes a single RPC method.
+type GrpcMethodDesc struct {
+	Name            string      `json:"name"`
+	ClientStreaming bool        `json:"clientStreaming"`
+	ServerStreaming bool        `json:"serverStreaming"`
+	InputType       string      `json:"inputType"`
+	OutputType      string      `json:"outputType"`
+	InputFields     []GrpcField `json:"inputFields"`
+	OutputFields    []GrpcField `json:"outputFields"`
+}
+
+// GrpcServiceDesc is the full descriptor tree for one service.
+type GrpcServiceDesc struct {
+	Service string           `json:"service"`
+	Methods []GrpcMethodDesc `json:"methods"`
+}
+
+// grpcFieldType returns a human-readable type name for a field descriptor.
+func grpcFieldType(f protoreflect.FieldDescriptor) string {
+	switch f.Kind() {
+	case protoreflect.MessageKind:
+		return string(f.Message().FullName())
+	case protoreflect.EnumKind:
+		return "enum " + string(f.Enum().FullName())
+	default:
+		return f.Kind().String()
+	}
+}
+
+// grpcFields extracts GrpcField entries from a message descriptor.
+func grpcFields(md protoreflect.MessageDescriptor) []GrpcField {
+	fields := md.Fields()
+	out := make([]GrpcField, 0, fields.Len())
+
+	for i := range fields.Len() {
+		f := fields.Get(i)
+		out = append(out, GrpcField{
+			Name:     string(f.Name()),
+			Type:     grpcFieldType(f),
+			Repeated: f.IsList(),
+			Optional: f.HasOptionalKeyword(),
+		})
+	}
+
+	return out
+}
+
+// GrpcDescribeService fetches the descriptor tree for a service via reflection.
+// Returns a JSON-encoded GrpcServiceDesc.
+func GrpcDescribeService(ctx context.Context, server, serviceName string, useTLS bool) (string, error) {
+	conn, err := dialGrpc(server, useTLS)
+	if err != nil {
+		return "", err
+	}
+
+	defer conn.Close()
+
+	reflectCtx, cancel := context.WithTimeout(ctx, grpcReflectTimeout)
+	defer cancel()
+
+	fds, err := reflectFileDescs(reflectCtx, conn, serviceName)
+	if err != nil {
+		return "", err
+	}
+
+	fd, err := buildFileDescriptor(fds)
+	if err != nil {
+		return "", fmt.Errorf("build file descriptor: %w", err)
+	}
+
+	shortName := serviceName
+	if idx := strings.LastIndex(serviceName, "."); idx >= 0 {
+		shortName = serviceName[idx+1:]
+	}
+
+	services := fd.Services()
+
+	for i := range services.Len() {
+		svc := services.Get(i)
+		if string(svc.FullName()) != serviceName && string(svc.Name()) != shortName {
+			continue
+		}
+
+		methods := svc.Methods()
+		desc := GrpcServiceDesc{
+			Service: string(svc.FullName()),
+			Methods: make([]GrpcMethodDesc, 0, methods.Len()),
+		}
+
+		for j := range methods.Len() {
+			m := methods.Get(j)
+			desc.Methods = append(desc.Methods, GrpcMethodDesc{
+				Name:            string(m.Name()),
+				ClientStreaming: m.IsStreamingClient(),
+				ServerStreaming: m.IsStreamingServer(),
+				InputType:       string(m.Input().FullName()),
+				OutputType:      string(m.Output().FullName()),
+				InputFields:     grpcFields(m.Input()),
+				OutputFields:    grpcFields(m.Output()),
+			})
+		}
+
+		b, err := json.MarshalIndent(desc, "", "  ")
+		if err != nil {
+			return "", fmt.Errorf("marshal descriptor: %w", err)
+		}
+
+		return string(b), nil
+	}
+
+	return "", fmt.Errorf("service %q not found", serviceName)
+}
+
 // GrpcListServices uses server reflection to list all available service names.
 func GrpcListServices(ctx context.Context, server string, useTLS bool) ([]string, error) {
 	conn, err := dialGrpc(server, useTLS)
