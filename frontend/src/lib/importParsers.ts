@@ -160,7 +160,9 @@ export function parseInsomniaV5(json: any): ImportResult {
     return { name, requests, folders };
 }
 
-export function parseCollection(text: string): ImportResult | null {
+export type ParseResult = { data: ImportResult; error: null } | { data: null; error: string };
+
+export function parseCollection(text: string): ParseResult {
     let json: unknown;
     try {
         json = JSON.parse(text);
@@ -168,25 +170,33 @@ export function parseCollection(text: string): ImportResult | null {
         try {
             json = yamlLoad(text);
         } catch {
-            return null;
+            return { data: null, error: 'File is not valid JSON or YAML.' };
         }
     }
 
-    if (json === null || typeof json !== 'object' || Array.isArray(json)) return null;
+    if (json === null || typeof json !== 'object' || Array.isArray(json)) {
+        return { data: null, error: 'File is not valid JSON or YAML.' };
+    }
     const j = json as Record<string, unknown>;
 
-    if ((j.info as any)?.schema?.includes?.('getpostman.com')) return parsePostman(j);
-    if (j.item && !j._type) return parsePostman(j);
+    if ((j.info as any)?.schema?.includes?.('getpostman.com'))
+        return { data: parsePostman(j), error: null };
+    if (j.item && !j._type) return { data: parsePostman(j), error: null };
 
-    if (j._type === 'export' && j.__export_format == 4) return parseInsomnia(j);
+    if (j._type === 'export' && j.__export_format == 4)
+        return { data: parseInsomnia(j), error: null };
 
-    if (j._type === 'export' && Array.isArray(j.resources)) return parseInsomnia(j);
+    if (j._type === 'export' && Array.isArray(j.resources))
+        return { data: parseInsomnia(j), error: null };
 
     if (
         (typeof j.type === 'string' && j.type.startsWith('collection')) ||
         (j.name && (Array.isArray(j.children) || Array.isArray(j.collection)))
     )
-        return parseInsomniaV5(j);
+        return { data: parseInsomniaV5(j), error: null };
 
-    return null;
+    return {
+        data: null,
+        error: 'Unrecognised format. Supported: Postman v2.1, Insomnia v4/v5 (JSON or YAML).',
+    };
 }

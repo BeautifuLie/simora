@@ -2,11 +2,14 @@ package transport
 
 import "time"
 
-// gRPC timeouts.
+// gRPC timeouts and limits.
 const (
-	grpcDialTimeout    = 10 * time.Second
 	grpcReflectTimeout = 10 * time.Second
 	grpcInvokeTimeout  = 30 * time.Second
+
+	// maxReflectFileDescs caps the number of FileDescriptorProto objects accepted
+	// from a single server-reflection response to prevent runaway memory growth.
+	maxReflectFileDescs = 100
 )
 
 // Kafka network timeouts and offset names.

@@ -105,6 +105,13 @@ export function WelcomeScreen() {
     const { createOrganization, createProject, setActiveOrg, setActiveProject, organizations } =
         useAppStore();
     const [loading, setLoading] = React.useState(false);
+    const mountedRef = React.useRef(true);
+    React.useEffect(
+        () => () => {
+            mountedRef.current = false;
+        },
+        []
+    );
 
     function handleGetStarted() {
         setLoading(true);
@@ -113,7 +120,8 @@ export function WelcomeScreen() {
         createOrganization('My Workspace');
         // createOrganization uses its own id logic; read back from state
         // Use setTimeout to let store settle, then navigate
-        setTimeout(() => {
+        const t1 = setTimeout(() => {
+            if (!mountedRef.current) return;
             const orgs = useAppStore.getState().organizations;
             const org = orgs[orgs.length - 1];
             if (!org) {
@@ -121,7 +129,8 @@ export function WelcomeScreen() {
                 return;
             }
             createProject(org.id, 'Default Project');
-            setTimeout(() => {
+            const t2 = setTimeout(() => {
+                if (!mountedRef.current) return;
                 const updatedOrg = useAppStore.getState().organizations.find(o => o.id === org.id);
                 const proj = updatedOrg?.projects?.[updatedOrg.projects.length - 1];
                 if (!proj) {
@@ -132,7 +141,9 @@ export function WelcomeScreen() {
                 setActiveProject(proj.id);
                 setLoading(false);
             }, 0);
+            void t2;
         }, 0);
+        void t1;
         void orgId;
         void projId;
     }
@@ -145,7 +156,8 @@ export function WelcomeScreen() {
         void projId;
 
         createOrganization('Sample Workspace');
-        setTimeout(() => {
+        const t1 = setTimeout(() => {
+            if (!mountedRef.current) return;
             const orgs = useAppStore.getState().organizations;
             const org = orgs[orgs.length - 1];
             if (!org) {
@@ -154,7 +166,8 @@ export function WelcomeScreen() {
             }
 
             createProject(org.id, 'Demo Project');
-            setTimeout(() => {
+            const t2 = setTimeout(() => {
+                if (!mountedRef.current) return;
                 const updatedOrg = useAppStore.getState().organizations.find(o => o.id === org.id);
                 const proj = updatedOrg?.projects?.[updatedOrg.projects.length - 1];
                 if (!proj) {
@@ -227,7 +240,9 @@ export function WelcomeScreen() {
                 setActiveProject(proj.id);
                 setLoading(false);
             }, 0);
+            void t2;
         }, 0);
+        void t1;
     }
 
     // If orgs already exist but no tab open, don't show welcome

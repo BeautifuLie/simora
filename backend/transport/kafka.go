@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 	"time"
 
@@ -371,7 +372,12 @@ func collectMessages(
 
 		drained := drainPartition(pc, idleTimeout, maxMessages-len(messages))
 		pc.Close()
-		<-errDone
+
+		select {
+		case <-errDone:
+		case <-time.After(2 * time.Second):
+			log.Println("warn: kafka error channel drain timeout")
+		}
 
 		messages = append(messages, drained...)
 	}

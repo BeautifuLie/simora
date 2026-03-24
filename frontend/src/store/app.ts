@@ -80,6 +80,7 @@ interface AppState {
     organizations: Organization[];
     dataLoading: boolean;
     dataError: string | null;
+    settingsError: string | null;
 
     // Navigation
     protocol: Protocol;
@@ -434,9 +435,12 @@ function runTests(code: string, response: Response): Promise<TestResult[]> {
     if (!code.trim()) return Promise.resolve([]);
 
     return new Promise(resolve => {
+        let resolved = false;
         const worker = new Worker(new URL('./testWorker.ts', import.meta.url), { type: 'module' });
 
         const timer = setTimeout(() => {
+            if (resolved) return;
+            resolved = true;
             worker.terminate();
             resolve([
                 {
@@ -448,12 +452,16 @@ function runTests(code: string, response: Response): Promise<TestResult[]> {
         }, TEST_TIMEOUT_MS);
 
         worker.onmessage = (e: MessageEvent<TestResult[]>) => {
+            if (resolved) return;
+            resolved = true;
             clearTimeout(timer);
             worker.terminate();
             resolve(e.data);
         };
 
         worker.onerror = e => {
+            if (resolved) return;
+            resolved = true;
             clearTimeout(timer);
             worker.terminate();
             resolve([{ name: 'Script error', pass: false, error: e.message }]);
@@ -714,6 +722,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     organizations: [],
     dataLoading: false,
     dataError: null,
+    settingsError: null,
     protocol: 'http',
     activeOrgId: null,
     activeProjectId: null,
@@ -746,8 +755,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                             merged.theme = DEFAULT_SETTINGS.theme;
                         set({ settings: merged as typeof DEFAULT_SETTINGS });
                     }
-                } catch {
-                    /* non-fatal */
+                } catch (e) {
+                    set({ settingsError: String(e) });
                 }
             }
             const orgs = isWails ? await OrganizationService.LoadOrganizations() : MOCK_ORGS;
@@ -1345,13 +1354,21 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     deleteOrganization: id => {
         set(s => {
+            const newOrgs = s.organizations.filter(o => o.id !== id) as Organization[];
             const newTabs = s.tabs.filter(t => t.path?.orgId !== id);
+            const fallbackOrg = newOrgs[0] ?? null;
             return {
-                organizations: s.organizations.filter(o => o.id !== id) as Organization[],
+                organizations: newOrgs,
                 tabs: newTabs,
                 activeTabId: newTabs.find(t => t.id === s.activeTabId)
                     ? s.activeTabId
                     : (newTabs[0]?.id ?? null),
+                activeOrgId: s.activeOrgId === id ? (fallbackOrg?.id ?? null) : s.activeOrgId,
+                activeProjectId:
+                    s.activeOrgId === id
+                        ? (fallbackOrg?.projects?.[0]?.id ?? null)
+                        : s.activeProjectId,
+                activeCollectionId: s.activeOrgId === id ? null : s.activeCollectionId,
             };
         });
         if (isWails) OrganizationService.DeleteOrganization(id).catch(console.error);
@@ -1385,17 +1402,25 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     deleteProject: (orgId, id) => {
         set(s => {
+            const newOrgs = s.organizations.map(o =>
+                o.id === orgId ? { ...o, projects: o.projects?.filter(p => p.id !== id) } : o
+            ) as Organization[];
             const newTabs = s.tabs.filter(
                 t => !(t.path?.orgId === orgId && t.path?.projectId === id)
             );
+            const fallbackProject =
+                s.activeProjectId === id
+                    ? (newOrgs.find(o => o.id === orgId)?.projects?.[0] ?? null)
+                    : null;
             return {
-                organizations: s.organizations.map(o =>
-                    o.id === orgId ? { ...o, projects: o.projects?.filter(p => p.id !== id) } : o
-                ) as Organization[],
+                organizations: newOrgs,
                 tabs: newTabs,
                 activeTabId: newTabs.find(t => t.id === s.activeTabId)
                     ? s.activeTabId
                     : (newTabs[0]?.id ?? null),
+                activeProjectId:
+                    s.activeProjectId === id ? (fallbackProject?.id ?? null) : s.activeProjectId,
+                activeCollectionId: s.activeProjectId === id ? null : s.activeCollectionId,
             };
         });
         if (isWails) OrganizationService.DeleteProject(orgId, id).catch(console.error);
@@ -1902,6 +1927,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                 activeTabId: affectedIds.has(s.activeTabId ?? '')
                     ? (newTabs[0]?.id ?? null)
                     : s.activeTabId,
+                activeCollectionId:
+                    s.activeCollectionId === collectionId ? null : s.activeCollectionId,
             };
         });
     },
