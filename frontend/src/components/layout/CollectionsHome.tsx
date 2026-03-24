@@ -647,9 +647,9 @@ export function CollectionsHome() {
         // Reset so same file can be re-imported
         e.target.value = '';
         const text = await file.text();
-        const result = parseCollection(text);
-        if (!result) {
-            alert('Unsupported format. Supported: Postman v2.1, Insomnia v4 and v5 (JSON).');
+        const { data: result, error: importError } = parseCollection(text);
+        if (importError) {
+            alert(importError);
             return;
         }
         const orgId = org?.id ?? '';

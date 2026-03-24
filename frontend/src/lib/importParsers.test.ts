@@ -72,46 +72,46 @@ children:
 
 describe('parseCollection — Postman v2.1 JSON', () => {
     it('parses successfully and returns the collection name', () => {
-        const result = parseCollection(postmanV21Json);
-        expect(result).not.toBeNull();
-        expect(result!.name).toBe('My API');
+        const { data, error } = parseCollection(postmanV21Json);
+        expect(error).toBeNull();
+        expect(data!.name).toBe('My API');
     });
 
     it('extracts direct requests from collection root', () => {
-        const result = parseCollection(postmanV21Json);
-        expect(result!.requests).toHaveLength(1);
-        expect(result!.requests[0].name).toBe('Get Users');
-        expect(result!.requests[0].method).toBe('GET');
+        const { data } = parseCollection(postmanV21Json);
+        expect(data!.requests).toHaveLength(1);
+        expect(data!.requests[0].name).toBe('Get Users');
+        expect(data!.requests[0].method).toBe('GET');
     });
 
     it('extracts folders from collection', () => {
-        const result = parseCollection(postmanV21Json);
-        expect(result!.folders).toHaveLength(1);
-        expect(result!.folders[0].name).toBe('Auth');
+        const { data } = parseCollection(postmanV21Json);
+        expect(data!.folders).toHaveLength(1);
+        expect(data!.folders[0].name).toBe('Auth');
     });
 
     it('extracts nested requests from folders', () => {
-        const result = parseCollection(postmanV21Json);
-        expect(result!.folders[0].requests).toHaveLength(1);
-        expect(result!.folders[0].requests[0].name).toBe('Login');
+        const { data } = parseCollection(postmanV21Json);
+        expect(data!.folders[0].requests).toHaveLength(1);
+        expect(data!.folders[0].requests[0].name).toBe('Login');
     });
 });
 
 describe('parseCollection — Insomnia v4 JSON', () => {
     it('parses successfully and returns the workspace name', () => {
-        const result = parseCollection(insomniaV4Json);
-        expect(result).not.toBeNull();
-        expect(result!.name).toBe('My Workspace');
+        const { data, error } = parseCollection(insomniaV4Json);
+        expect(error).toBeNull();
+        expect(data!.name).toBe('My Workspace');
     });
 
     it('extracts requests from workspace', () => {
-        const result = parseCollection(insomniaV4Json);
-        expect(result!.requests).toHaveLength(2);
+        const { data } = parseCollection(insomniaV4Json);
+        expect(data!.requests).toHaveLength(2);
     });
 
     it('maps request names correctly', () => {
-        const result = parseCollection(insomniaV4Json);
-        const names = result!.requests.map(r => r.name);
+        const { data } = parseCollection(insomniaV4Json);
+        const names = data!.requests.map(r => r.name);
         expect(names).toContain('Health Check');
         expect(names).toContain('Create Item');
     });
@@ -119,38 +119,42 @@ describe('parseCollection — Insomnia v4 JSON', () => {
 
 describe('parseCollection — Insomnia v5 YAML', () => {
     it('parses successfully and returns the collection name', () => {
-        const result = parseCollection(insomniaV5Yaml);
-        expect(result).not.toBeNull();
-        expect(result!.name).toBe('My V5 Collection');
+        const { data, error } = parseCollection(insomniaV5Yaml);
+        expect(error).toBeNull();
+        expect(data!.name).toBe('My V5 Collection');
     });
 
     it('extracts requests from children', () => {
-        const result = parseCollection(insomniaV5Yaml);
-        expect(result!.requests).toHaveLength(1);
-        expect(result!.requests[0].name).toBe('Ping');
-        expect(result!.requests[0].method).toBe('GET');
+        const { data } = parseCollection(insomniaV5Yaml);
+        expect(data!.requests).toHaveLength(1);
+        expect(data!.requests[0].name).toBe('Ping');
+        expect(data!.requests[0].method).toBe('GET');
     });
 });
 
 describe('parseCollection — unknown format', () => {
-    it('returns null for unknown JSON format', () => {
-        const result = parseCollection(JSON.stringify({ foo: 'bar', unrecognized: true }));
-        expect(result).toBeNull();
+    it('returns error for unknown JSON format', () => {
+        const { data, error } = parseCollection(JSON.stringify({ foo: 'bar', unrecognized: true }));
+        expect(data).toBeNull();
+        expect(error).toMatch(/Unrecognised format/);
     });
 
-    it('returns null for invalid JSON and invalid YAML', () => {
-        const result = parseCollection('{invalid json AND: : :\nbad: yaml: :}');
-        expect(result).toBeNull();
+    it('returns error for invalid JSON and invalid YAML', () => {
+        const { data, error } = parseCollection('{invalid json AND: : :\nbad: yaml: :}');
+        expect(data).toBeNull();
+        expect(error).toMatch(/not valid JSON or YAML/);
     });
 
-    it('returns null for plain text', () => {
-        const result = parseCollection('just some text');
-        expect(result).toBeNull();
+    it('returns error for plain text', () => {
+        const { data, error } = parseCollection('just some text');
+        expect(data).toBeNull();
+        expect(error).not.toBeNull();
     });
 
-    it('returns null for JSON array at root', () => {
-        const result = parseCollection(JSON.stringify([{ name: 'item' }]));
-        expect(result).toBeNull();
+    it('returns error for JSON array at root', () => {
+        const { data, error } = parseCollection(JSON.stringify([{ name: 'item' }]));
+        expect(data).toBeNull();
+        expect(error).not.toBeNull();
     });
 });
 
