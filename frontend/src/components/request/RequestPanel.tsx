@@ -29,8 +29,35 @@ import { SqsPanel } from './SqsPanel';
 import { WsPanel } from './WsPanel';
 import { RequestNameBar } from './RequestNameBar';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { VarInput } from '@/components/ui/VarInput';
+import { VarTextarea } from '@/components/ui/VarTextarea';
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+
+// ── Var helpers ───────────────────────────────────────────────────────────
+
+function useVarProps() {
+    const { environments, activeEnvId, organizations } = useAppStore();
+    const path = useAppStore(s => {
+        const tab = s.activeTabId ? s.tabs.find(t => t.id === s.activeTabId) : null;
+        return tab?.path ?? null;
+    });
+    const activeEnv = environments.find(e => e.id === activeEnvId) ?? null;
+    const collectionVars = React.useMemo(() => {
+        if (!path) return [];
+        for (const org of organizations) {
+            for (const proj of org.projects ?? []) {
+                const col = proj.collections?.find(c => c.id === path.collectionId);
+                if (col) return (col as any).variables ?? [];
+            }
+        }
+        return [];
+    }, [path, organizations]);
+    return {
+        envVars: activeEnv?.variables ?? [],
+        collectionVars,
+    };
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -224,6 +251,8 @@ function KVRow({
     onChangeKey,
     onChangeValue,
     onRemove,
+    envVars,
+    collectionVars,
 }: {
     checked: boolean;
     keyVal: string;
@@ -234,6 +263,8 @@ function KVRow({
     onChangeKey: (_v: string) => void;
     onChangeValue: (_v: string) => void;
     onRemove: () => void;
+    envVars?: Array<{ key: string; enabled: boolean }>;
+    collectionVars?: Array<{ key: string; enabled: boolean }>;
 }) {
     return (
         <div
@@ -274,46 +305,21 @@ function KVRow({
                     borderLeft: '1px solid var(--border-0)',
                     display: 'flex',
                     alignItems: 'center',
-                    position: 'relative',
                 }}
             >
-                <div
-                    aria-hidden
-                    className="absolute inset-0 flex items-center pointer-events-none"
-                    style={{
-                        padding: '0 10px',
-                        fontSize: 'var(--text-base)',
-                        fontFamily: 'var(--font-mono)',
-                        whiteSpace: 'pre',
-                        overflow: 'hidden',
-                    }}
-                    dangerouslySetInnerHTML={{
-                        __html: valueVal
-                            ? valueVal
-                                  .replace(/&/g, '&amp;')
-                                  .replace(/</g, '&lt;')
-                                  .replace(/>/g, '&gt;')
-                                  .replace(/"/g, '&quot;')
-                                  .replace(
-                                      /(\{\{[^}]*\}\})/g,
-                                      '<mark style="background:rgba(251,191,36,0.18);color:var(--yellow);border-radius:2px">$1</mark>'
-                                  )
-                            : '',
-                    }}
-                />
-                <input
+                <VarInput
                     value={valueVal}
-                    onChange={e => onChangeValue(e.target.value)}
+                    onChange={onChangeValue}
                     placeholder={valuePlaceholder ?? 'value'}
-                    className="relative w-full h-full bg-transparent outline-none"
+                    envVars={envVars}
+                    collectionVars={collectionVars}
                     style={{
-                        padding: '0 10px',
-                        fontSize: 'var(--text-base)',
-                        fontFamily: 'var(--font-mono)',
-                        color: valueVal ? 'transparent' : 'var(--text-1)',
-                        caretColor: 'var(--text-1)',
+                        height: '100%',
+                        border: 'none',
+                        borderRadius: 0,
+                        background: 'transparent',
+                        flex: 1,
                     }}
-                    spellCheck={false}
                 />
             </div>
             <button
@@ -364,6 +370,7 @@ function KVAddButton({ label, onClick }: { label: string; onClick: () => void })
 function ParamRow({ idx }: { idx: number }) {
     const editing = useAppStore(selectEditing);
     const { setParam, toggleParam, removeParam } = useAppStore();
+    const { envVars, collectionVars } = useVarProps();
     if (!editing) return null;
     const p = editing.params[idx];
     if (!p) return null;
@@ -378,6 +385,8 @@ function ParamRow({ idx }: { idx: number }) {
             onChangeKey={v => setParam(idx, v, p.value)}
             onChangeValue={v => setParam(idx, p.key, v)}
             onRemove={() => removeParam(idx)}
+            envVars={envVars}
+            collectionVars={collectionVars}
         />
     );
 }
@@ -406,6 +415,7 @@ function ParamsTable() {
 function HeaderRow({ idx }: { idx: number }) {
     const editing = useAppStore(selectEditing);
     const { setHeader, toggleHeader, removeHeader } = useAppStore();
+    const { envVars, collectionVars } = useVarProps();
     if (!editing) return null;
     const h = editing.headers[idx];
     if (!h) return null;
@@ -420,6 +430,8 @@ function HeaderRow({ idx }: { idx: number }) {
             onChangeKey={v => setHeader(idx, v, h.value)}
             onChangeValue={v => setHeader(idx, h.key, v)}
             onRemove={() => removeHeader(idx)}
+            envVars={envVars}
+            collectionVars={collectionVars}
         />
     );
 }
@@ -457,6 +469,7 @@ const BODY_TYPES: { id: BodyType; label: string }[] = [
 function FormFieldRow({ idx, bodyType }: { idx: number; bodyType: BodyType }) {
     const editing = useAppStore(selectEditing);
     const { setFormField, toggleFormField, removeFormField } = useAppStore();
+    const { envVars, collectionVars } = useVarProps();
     if (!editing) return null;
     const f = editing.formFields[idx];
     if (!f) return null;
@@ -471,6 +484,8 @@ function FormFieldRow({ idx, bodyType }: { idx: number; bodyType: BodyType }) {
             onChangeKey={v => setFormField(idx, v, f.value)}
             onChangeValue={v => setFormField(idx, f.key, v)}
             onRemove={() => removeFormField(idx)}
+            envVars={envVars}
+            collectionVars={collectionVars}
         />
     );
 }
@@ -478,6 +493,7 @@ function FormFieldRow({ idx, bodyType }: { idx: number; bodyType: BodyType }) {
 function BodyEditor() {
     const editing = useAppStore(selectEditing);
     const { setBody, setBodyType, addFormField, setBinaryFile } = useAppStore();
+    const { envVars, collectionVars } = useVarProps();
     const [prettifyError, setPrettifyError] = React.useState<string | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     if (!editing) return null;
@@ -585,21 +601,25 @@ function BodyEditor() {
 
                 {/* JSON / Text */}
                 {(bodyType === 'json' || bodyType === 'text') && (
-                    <textarea
+                    <VarTextarea
                         value={editing.body}
-                        onChange={e => setBody(e.target.value)}
-                        className="w-full h-full resize-none bg-transparent outline-none"
+                        onChange={setBody}
+                        className="w-full h-full"
                         style={{
                             padding: '14px 16px',
                             fontSize: 'var(--text-base)',
                             fontFamily: "'JetBrains Mono Variable', monospace",
                             color: 'var(--text-0)',
                             lineHeight: 1.7,
+                            border: 'none',
+                            borderRadius: 0,
+                            background: 'transparent',
                         }}
                         placeholder={
                             bodyType === 'json' ? '{\n  "key": "value"\n}' : 'Plain text body…'
                         }
-                        spellCheck={false}
+                        envVars={envVars}
+                        collectionVars={collectionVars}
                     />
                 )}
 
@@ -1863,6 +1883,7 @@ export function RequestPanel() {
     });
     const validateSsl = useAppStore(s => s.settings.validateSsl);
     const activeEnv = environments.find(e => e.id === activeEnvId) ?? null;
+    const { envVars, collectionVars } = useVarProps();
 
     // Auto-save with debounce
     React.useEffect(() => {
@@ -1939,54 +1960,17 @@ export function RequestPanel() {
                 >
                     <MethodSelector />
 
-                    <div
-                        className="flex-1 relative flex items-center rounded-[var(--r-sm)] overflow-hidden transition-colors duration-150 focus-within:border-[var(--border-focus)]"
+                    <VarInput
+                        value={editing.url}
+                        onChange={setUrl}
+                        placeholder="https://api.example.com/endpoint"
+                        envVars={envVars}
+                        collectionVars={collectionVars}
                         style={{
-                            height: 'var(--input-height)',
-                            border: '1px solid var(--border-1)',
-                            background: 'var(--bg-2)',
+                            padding: '0 12px',
+                            fontFamily: "'JetBrains Mono Variable', monospace",
                         }}
-                    >
-                        {/* Highlight overlay — sits behind the input */}
-                        <div
-                            aria-hidden
-                            className="absolute inset-0 flex items-center pointer-events-none"
-                            style={{
-                                padding: '0 12px',
-                                fontSize: 'var(--text-base)',
-                                fontFamily: "'JetBrains Mono Variable', monospace",
-                                whiteSpace: 'pre',
-                                overflow: 'hidden',
-                            }}
-                            dangerouslySetInnerHTML={{
-                                __html: editing.url
-                                    ? editing.url
-                                          .replace(/&/g, '&amp;')
-                                          .replace(/</g, '&lt;')
-                                          .replace(/>/g, '&gt;')
-                                          .replace(
-                                              /(\{\{[^}]*\}\})/g,
-                                              '<mark style="background:rgba(251,191,36,0.18);color:var(--yellow);border-radius:2px">$1</mark>'
-                                          )
-                                    : '',
-                            }}
-                        />
-                        <input
-                            type="text"
-                            value={editing.url}
-                            onChange={e => setUrl(e.target.value)}
-                            placeholder="https://api.example.com/endpoint"
-                            className="relative flex-1 bg-transparent outline-none h-full"
-                            style={{
-                                padding: '0 12px',
-                                fontSize: 'var(--text-base)',
-                                fontFamily: "'JetBrains Mono Variable', monospace",
-                                color: editing.url ? 'transparent' : 'var(--text-0)',
-                                caretColor: 'var(--text-0)',
-                            }}
-                            spellCheck={false}
-                        />
-                    </div>
+                    />
 
                     {!validateSsl && (
                         <span

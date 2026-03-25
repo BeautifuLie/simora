@@ -5,6 +5,8 @@ import { useAppStore, selectEditing } from '@/store/app';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { ProtocolBadge } from './ProtocolBadge';
 import { RequestNameBar } from './RequestNameBar';
+import { VarInput } from '@/components/ui/VarInput';
+import { VarTextarea } from '@/components/ui/VarTextarea';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -22,6 +24,31 @@ function Label({ children }: { children: React.ReactNode }) {
             {children}
         </span>
     );
+}
+
+// ── Var helpers ────────────────────────────────────────────────────────────
+
+function useVarProps() {
+    const { environments, activeEnvId, organizations } = useAppStore();
+    const path = useAppStore(s => {
+        const tab = s.activeTabId ? s.tabs.find(t => t.id === s.activeTabId) : null;
+        return tab?.path ?? null;
+    });
+    const activeEnv = environments.find(e => e.id === activeEnvId) ?? null;
+    const collectionVars = React.useMemo(() => {
+        if (!path) return [];
+        for (const org of organizations) {
+            for (const proj of org.projects ?? []) {
+                const col = proj.collections?.find(c => c.id === path.collectionId);
+                if (col) return (col as any).variables ?? [];
+            }
+        }
+        return [];
+    }, [path, organizations]);
+    return {
+        envVars: activeEnv?.variables ?? [],
+        collectionVars,
+    };
 }
 
 // ── Region selector ───────────────────────────────────────────────────────
@@ -127,6 +154,7 @@ function RegionSelector() {
 function SqsMessageTab() {
     const editing = useAppStore(selectEditing);
     const patchSqs = useAppStore(s => s.patchSqs);
+    const { envVars, collectionVars } = useVarProps();
     if (!editing) return null;
 
     return (
@@ -142,10 +170,10 @@ function SqsMessageTab() {
                 }}
             >
                 <Label>Message Body</Label>
-                <textarea
+                <VarTextarea
                     value={editing.sqs.body}
-                    onChange={e => patchSqs({ body: e.target.value })}
-                    className="flex-1 resize-none bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] leading-relaxed transition-colors duration-150 focus:border-[var(--border-focus)]"
+                    onChange={v => patchSqs({ body: v })}
+                    className="flex-1"
                     style={{
                         padding: 10,
                         fontSize: 'var(--text-base)',
@@ -154,7 +182,8 @@ function SqsMessageTab() {
                         border: '1px solid var(--border-1)',
                     }}
                     placeholder={'{\n  "action": "process",\n  "payload": {}\n}'}
-                    spellCheck={false}
+                    envVars={envVars}
+                    collectionVars={collectionVars}
                 />
             </div>
 
@@ -494,6 +523,7 @@ export function SqsPanel() {
     const patchSqs = useAppStore(s => s.patchSqs);
     const setActiveTab = useAppStore(s => s.setActiveTab);
     const sendRequest = useAppStore(s => s.sendRequest);
+    const { envVars, collectionVars } = useVarProps();
     const responseLoading = useAppStore(s => {
         const t = s.activeTabId ? s.tabs.find(tab => tab.id === s.activeTabId) : null;
         return t?.responseLoading ?? false;
@@ -520,28 +550,17 @@ export function SqsPanel() {
                 <ProtocolBadge />
 
                 {/* Queue URL */}
-                <div
-                    className="flex-1 flex items-center rounded-[var(--r-sm)] overflow-hidden transition-colors duration-150 focus-within:border-[var(--border-focus)]"
+                <VarInput
+                    value={editing.sqs.queueUrl}
+                    onChange={v => patchSqs({ queueUrl: v })}
+                    placeholder="https://sqs.us-east-1.amazonaws.com/123456789012/MyQueue"
+                    envVars={envVars}
+                    collectionVars={collectionVars}
                     style={{
-                        height: 'var(--input-height)',
-                        border: '1px solid var(--border-1)',
-                        background: 'var(--bg-2)',
+                        padding: '0 12px',
+                        fontFamily: "'JetBrains Mono Variable', monospace",
                     }}
-                >
-                    <input
-                        value={editing.sqs.queueUrl}
-                        onChange={e => patchSqs({ queueUrl: e.target.value })}
-                        placeholder="https://sqs.us-east-1.amazonaws.com/123456789012/MyQueue"
-                        className="w-full bg-transparent outline-none h-full"
-                        style={{
-                            padding: '0 12px',
-                            fontSize: 'var(--text-base)',
-                            fontFamily: "'JetBrains Mono Variable', monospace",
-                            color: 'var(--text-0)',
-                        }}
-                        spellCheck={false}
-                    />
-                </div>
+                />
 
                 <RegionSelector />
 

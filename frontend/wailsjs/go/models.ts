@@ -240,11 +240,13 @@ export namespace domain {
 	    size: number;
 	    body: string;
 	    headers: Record<string, string[]>;
-	
+	    isBinary: boolean;
+	    contentType: string;
+
 	    static createFrom(source: any = {}) {
 	        return new Response(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.statusCode = source["statusCode"];
@@ -253,6 +255,8 @@ export namespace domain {
 	        this.size = source["size"];
 	        this.body = source["body"];
 	        this.headers = source["headers"];
+	        this.isBinary = source["isBinary"] ?? false;
+	        this.contentType = source["contentType"] ?? "";
 	    }
 	}
 	export class FormField {

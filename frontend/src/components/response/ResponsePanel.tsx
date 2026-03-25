@@ -412,6 +412,22 @@ function BodyTab({ body }: { body: string }) {
                 </div>
             )}
 
+            {/* Truncation banner */}
+            {isTruncated && (
+                <div
+                    style={{
+                        background: 'rgba(245,158,11,0.12)',
+                        color: '#f59e0b',
+                        padding: '4px 12px',
+                        fontSize: '0.78rem',
+                        borderBottom: '1px solid rgba(245,158,11,0.3)',
+                    }}
+                >
+                    Response truncated — showing first 200 KB. Click &quot;Show full&quot; to load
+                    all.
+                </div>
+            )}
+
             {/* Code */}
             <div className="flex-1 overflow-auto">
                 <pre
@@ -458,6 +474,77 @@ function BodyTab({ body }: { body: string }) {
                     </div>
                 )}
             </div>
+        </div>
+    );
+}
+
+// ── Binary body viewer ──────────────────────────────────────────────────────
+
+function BinaryBodyTab({
+    contentType,
+    sizeBytes,
+    base64Body,
+}: {
+    contentType: string;
+    sizeBytes: number;
+    base64Body: string;
+}) {
+    return (
+        <div
+            className="flex flex-col items-center justify-center h-full gap-4"
+            style={{ color: 'var(--text-2)' }}
+        >
+            <div
+                className="flex items-center justify-center rounded-[var(--r-lg)]"
+                style={{
+                    width: 48,
+                    height: 48,
+                    background: 'var(--bg-2)',
+                    border: '1px solid var(--border-1)',
+                }}
+            >
+                <Download style={{ width: 20, height: 20, opacity: 0.5 }} />
+            </div>
+            <div className="flex flex-col items-center gap-2">
+                <span
+                    className="rounded-[var(--r-sm)]"
+                    style={{
+                        padding: '3px 8px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        background: 'var(--bg-3)',
+                        border: '1px solid var(--border-1)',
+                        color: 'var(--text-1)',
+                        fontFamily: 'monospace',
+                    }}
+                >
+                    {contentType || 'application/octet-stream'}
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                    {formatSize(sizeBytes)}
+                </span>
+            </div>
+            {isWails && (
+                <button
+                    className="flex items-center gap-1.5 rounded-[var(--r-sm)] cursor-pointer transition-all duration-150 hover:brightness-110"
+                    style={{
+                        padding: '6px 14px',
+                        background: 'var(--accent)',
+                        color: '#0d1117',
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        border: 'none',
+                    }}
+                    onClick={() =>
+                        SaveFile(base64Body, 'response.bin').catch(err =>
+                            console.warn('save file failed:', err)
+                        )
+                    }
+                >
+                    <Download style={{ width: 13, height: 13 }} />
+                    Save to file
+                </button>
+            )}
         </div>
     );
 }
@@ -1695,7 +1782,16 @@ export function ResponsePanel() {
 
                 {response && !responseLoading && (
                     <>
-                        {activeResponseTab === 'body' && <BodyTab body={response.body} />}
+                        {activeResponseTab === 'body' &&
+                            (response.isBinary ? (
+                                <BinaryBodyTab
+                                    contentType={response.contentType ?? ''}
+                                    sizeBytes={response.size}
+                                    base64Body={response.body}
+                                />
+                            ) : (
+                                <BodyTab body={response.body} />
+                            ))}
                         {activeResponseTab === 'headers' && (
                             <HeadersTab headers={response.headers ?? {}} />
                         )}
