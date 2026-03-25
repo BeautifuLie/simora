@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- HTTP responses larger than 10 MB now show an amber "truncated at 10 MB" banner in the response panel (PR #34)
+- gRPC server reflection now returns an error when the server returns more than 100 file descriptors instead of silently truncating (PR #34)
+- Kafka Avro decode failures are now surfaced as readable error strings in the message value instead of a silent base64 fallback (PR #34)
+- Kafka stateless consume now includes a `warning` field in the result JSON when a partition scan fails mid-way, rather than silently returning partial results (PR #34)
+- Environments panel header now shows "Shared across all workspaces" subtitle explaining variable scope (PR #34)
 - Right-click on organizations in the workspace dropdown no longer shows the browser context menu (PR #32)
 - Workspace dropdown action buttons (rename/delete) now have 40% base opacity so they are visible at rest (PR #32)
 - Workspace dropdown divider no longer appears when there are no workspaces (PR #32)
