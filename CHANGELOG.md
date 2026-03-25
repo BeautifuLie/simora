@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Integration tests for transport layer (gRPC, Kafka, SQS) with docker-compose; new Makefile targets: `test.backend.unit`, `test.backend.integration`, `test.backend.all`
+- `PasswordInput` component with eye-icon toggle for all sensitive credential fields (bearer token, basic auth password, API key value, Kafka SASL password, Schema Registry password, SQS secret access key, session token)
+- Inline security warnings: SASL PLAIN without TLS warns credentials are sent unencrypted; Schema Registry over `http://` with credentials warns about unencrypted transport
+- Persistent "SSL verification off" badge in the HTTP URL bar when SSL certificate validation is disabled in Settings
+- Auto-update toggle in Settings → About: "Check for updates on startup" (default on); disabling it skips the GitHub releases check entirely
+
+### Fixed
+- `SaveFile` now writes exported files with permission `0o600` instead of `0o644`, restricting read access to the owner only
+- Crash reports are sanitised before being written to disk: `Authorization: Bearer` tokens, password fields, and AWS-style key strings are replaced with `[REDACTED]`
+- `KafkaConfig` and `SqsConfig` domain structs now include all auth fields (`saslMechanism`, `saslUsername`, `saslPassword`, `tls`, schema-registry fields for Kafka; `accessKeyId`, `secretKey`, `sessionToken` for SQS) so credentials are persisted correctly
 
 ### Added
 

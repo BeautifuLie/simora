@@ -622,6 +622,7 @@ function RequestSection({
 function AboutSection() {
     const [version, setVersion] = React.useState('...');
     const settingsError = useAppStore(s => s.settingsError);
+    const { settings, updateSettings } = useAppStore();
 
     React.useEffect(() => {
         GetVersion()
@@ -676,6 +677,18 @@ function AboutSection() {
                     </span>
                 </div>
             </div>
+
+            <SectionCard title="Updates">
+                <SettingRow
+                    label="Check for updates on startup"
+                    hint="Automatically check GitHub releases when the app starts"
+                >
+                    <Toggle
+                        checked={settings.autoUpdate ?? true}
+                        onChange={v => updateSettings({ autoUpdate: v })}
+                    />
+                </SettingRow>
+            </SectionCard>
 
             <SectionCard title="Stack">
                 {[

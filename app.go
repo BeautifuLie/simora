@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -14,6 +15,21 @@ import (
 	"simora/backend/service"
 	"simora/backend/storage"
 )
+
+// sensitivePatterns holds compiled regexes used to redact credentials from crash reports.
+var (
+	reBearerToken = regexp.MustCompile(`(?i)Authorization:\s*Bearer\s+\S+`)
+	rePassword    = regexp.MustCompile(`(?i)password["'\s:=]+[^\s,}"]+`)
+	reAwsKey      = regexp.MustCompile(`\b[A-Z0-9]{20,}\b`)
+)
+
+func sanitizeCrashMessage(msg string) string {
+	msg = reBearerToken.ReplaceAllString(msg, "Authorization: Bearer [REDACTED]")
+	msg = rePassword.ReplaceAllString(msg, "password: [REDACTED]")
+	msg = reAwsKey.ReplaceAllString(msg, "[REDACTED]")
+
+	return msg
+}
 
 // App struct.
 type App struct {
@@ -106,7 +122,7 @@ func (a *App) ReportCrash(message string) error {
 	content := fmt.Sprintf("version: %s\ntime: %s\n\n%s\n",
 		Version,
 		time.Now().UTC().Format(time.RFC3339),
-		message,
+		sanitizeCrashMessage(message),
 	)
 
 	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
@@ -188,7 +204,7 @@ func (a *App) SaveFile(content, defaultFilename string) error {
 		return nil
 	}
 
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		return fmt.Errorf("write file: %w", err)
 	}
 

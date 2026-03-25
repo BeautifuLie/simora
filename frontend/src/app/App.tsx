@@ -141,6 +141,7 @@ function StatusBar() {
     const protocol = useAppStore(s => selectEditing(s)?.protocol ?? s.protocol);
     const activePath = useAppStore(selectActivePath);
     const editing = useAppStore(selectEditing);
+    const autoUpdate = useAppStore(s => s.settings.autoUpdate ?? true);
     const [version, setVersion] = React.useState('');
     const [updateInfo, setUpdateInfo] = React.useState<{
         latestVersion: string;
@@ -152,20 +153,22 @@ function StatusBar() {
             .then((v: string) => setVersion(v))
             .catch(() => {});
         // Delay update check slightly so it doesn't compete with startup I/O.
-        const timer = setTimeout(() => {
-            CheckForUpdate()
-                .then(info => {
-                    if (info?.available) {
-                        setUpdateInfo({
-                            latestVersion: info.latestVersion,
-                            releaseURL: info.releaseURL,
-                        });
-                    }
-                })
-                .catch(() => {});
-        }, 3000);
-        return () => clearTimeout(timer);
-    }, []);
+        if (autoUpdate) {
+            const timer = setTimeout(() => {
+                CheckForUpdate()
+                    .then(info => {
+                        if (info?.available) {
+                            setUpdateInfo({
+                                latestVersion: info.latestVersion,
+                                releaseURL: info.releaseURL,
+                            });
+                        }
+                    })
+                    .catch(() => {});
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [autoUpdate]);
 
     const org = activePath ? organizations.find(o => o.id === activePath.orgId) : null;
     const project = org?.projects?.find(p => p.id === activePath?.projectId);

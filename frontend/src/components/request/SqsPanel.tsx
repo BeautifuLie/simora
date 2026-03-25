@@ -2,6 +2,7 @@ import React from 'react';
 import { Send, Plus, X, Loader2, ChevronDown } from 'lucide-react';
 import { cn, shortcut } from '@/lib/utils';
 import { useAppStore, selectEditing } from '@/store/app';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { ProtocolBadge } from './ProtocolBadge';
 import { RequestNameBar } from './RequestNameBar';
 
@@ -435,14 +436,10 @@ function AuthTab() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <Label>Secret Access Key</Label>
-                <input
-                    type="password"
+                <PasswordInput
                     value={editing.sqs.secretAccessKey}
-                    onChange={e => patchSqs({ secretAccessKey: e.target.value })}
+                    onChange={v => patchSqs({ secretAccessKey: v })}
                     placeholder="{{aws_secret_key}}"
-                    className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] transition-colors focus:border-[var(--border-focus)]"
-                    style={inputStyle}
-                    spellCheck={false}
                 />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -452,14 +449,10 @@ function AuthTab() {
                         (optional)
                     </span>
                 </Label>
-                <input
-                    type="password"
+                <PasswordInput
                     value={editing.sqs.sessionToken}
-                    onChange={e => patchSqs({ sessionToken: e.target.value })}
+                    onChange={v => patchSqs({ sessionToken: v })}
                     placeholder="Temporary session token…"
-                    className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] transition-colors focus:border-[var(--border-focus)]"
-                    style={inputStyle}
-                    spellCheck={false}
                 />
             </div>
             {(editing.sqs.accessKeyId || editing.sqs.secretAccessKey) && (
