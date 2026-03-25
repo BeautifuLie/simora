@@ -109,6 +109,7 @@ function TabItem({ tab }: { tab: Tab }) {
                 <span
                     className="shrink-0 rounded-full group-hover:hidden"
                     style={{ width: 5, height: 5, background: 'var(--accent)' }}
+                    title="Unsaved changes"
                 />
             )}
 

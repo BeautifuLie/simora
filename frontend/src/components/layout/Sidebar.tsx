@@ -500,6 +500,7 @@ function WorkspaceSwitcher({
                                         onSelect(org.id);
                                         setOpen(false);
                                     }}
+                                    onContextMenu={e => e.preventDefault()}
                                 >
                                     <div
                                         className="flex items-center justify-center shrink-0 rounded"
@@ -531,9 +532,9 @@ function WorkspaceSwitcher({
                                         />
                                     )}
 
-                                    {/* Action buttons — visible on hover */}
+                                    {/* Action buttons — always slightly visible, full on hover */}
                                     <div
-                                        className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="flex items-center gap-0.5 opacity-40 group-hover:opacity-100 transition-opacity"
                                         onClick={e => e.stopPropagation()}
                                     >
                                         <button
@@ -579,13 +580,15 @@ function WorkspaceSwitcher({
                                     </div>
                                 </div>
                             ))}
-                            <div
-                                style={{
-                                    height: 1,
-                                    background: 'var(--border-1)',
-                                    margin: '3px 0',
-                                }}
-                            />
+                            {organizations.length > 0 && (
+                                <div
+                                    style={{
+                                        height: 1,
+                                        background: 'var(--border-1)',
+                                        margin: '3px 0',
+                                    }}
+                                />
+                            )}
                             <button
                                 className="flex items-center gap-2.5 w-full rounded cursor-pointer transition-colors hover:bg-[var(--bg-4)]"
                                 style={{ padding: '7px 10px' }}
@@ -1094,6 +1097,7 @@ function FolderItem({
         moveRequest,
         reorderFolder,
         createSubFolder,
+        createRequest,
     } = useAppStore();
     const [open, setOpen] = React.useState(true);
     const [renaming, setRenaming] = React.useState(false);
@@ -1103,6 +1107,15 @@ function FolderItem({
     const { pos, open: openCtx, close: closeCtx } = useContextMenu();
 
     const ctxItems: CtxItem[] = [
+        {
+            label: 'New request',
+            icon: ({ style }) => <Plus style={style} />,
+            action: () =>
+                createRequest(
+                    { orgId, projectId, collectionId, folderId: folder.id },
+                    'New Request'
+                ),
+        },
         {
             label: 'New folder',
             icon: ({ style }) => <Folder style={style} />,
