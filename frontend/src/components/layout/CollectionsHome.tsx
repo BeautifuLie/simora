@@ -12,7 +12,7 @@ import {
     Zap,
     ArrowDownToLine,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, shortcut } from '@/lib/utils';
 import { useAppStore, type Collection, type Request, type Folder } from '@/store/app';
 import { parseCollection } from '@/lib/importParsers';
 
@@ -577,9 +577,9 @@ const EMPTY_CARDS: {
 ];
 
 const EMPTY_SHORTCUTS = [
-    { keys: '⌘T', label: 'New tab' },
-    { keys: '⌘K', label: 'Command palette' },
-    { keys: '⌘E', label: 'Environments' },
+    { keys: shortcut('T'), label: 'New tab' },
+    { keys: shortcut('K'), label: 'Command palette' },
+    { keys: shortcut('E'), label: 'Environments' },
 ];
 
 function EmptyCollections({ onNew, onImport }: { onNew: () => void; onImport: () => void }) {
