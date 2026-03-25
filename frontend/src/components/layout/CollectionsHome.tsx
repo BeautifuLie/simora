@@ -733,22 +733,26 @@ export function CollectionsHome() {
         if (!file) return;
         // Reset so same file can be re-imported
         e.target.value = '';
-        const text = await file.text();
-        const { data: result, error: importError } = parseCollection(text);
-        if (importError || !result) {
-            alert(importError ?? 'Unknown import error');
-            return;
+        try {
+            const text = await file.text();
+            const { data: result, error: importError } = parseCollection(text);
+            if (importError || !result) {
+                alert(importError ?? 'Unknown import error');
+                return;
+            }
+            const orgId = org?.id ?? '';
+            const projectId = project?.id ?? '';
+            if (!orgId || !projectId) return;
+            const newCol = {
+                id: crypto.randomUUID(),
+                name: result.name,
+                requests: result.requests,
+                folders: result.folders,
+            } as any;
+            importCollection(orgId, projectId, newCol);
+        } catch (err) {
+            alert('Import failed: ' + (err instanceof Error ? err.message : String(err)));
         }
-        const orgId = org?.id ?? '';
-        const projectId = project?.id ?? '';
-        if (!orgId || !projectId) return;
-        const newCol = {
-            id: crypto.randomUUID(),
-            name: result.name,
-            requests: result.requests,
-            folders: result.folders,
-        } as any;
-        importCollection(orgId, projectId, newCol);
     }
 
     if (!org || !project) {
