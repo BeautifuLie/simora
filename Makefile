@@ -50,35 +50,34 @@ backend.lint.fix:
 	go mod tidy
 	golangci-lint run --fix ./...
 
-backend.check: backend.tidy backend.lint test.backend
+backend.check: backend.tidy backend.lint backend.test
 
 # === Tests — Backend ===
 
-test.backend: ## unit tests, no docker (used by CI via make all)
+backend.test: ## unit tests, no docker (used by CI via make all)
 	$(GO) test -race -count=1 -skip Integration ./...
 
-test.backend.unit: ## unit tests with gotestsum + junit report
+backend.test.unit: ## unit tests with gotestsum + junit report
 	@mkdir -p test-reports
 	gotestsum --junitfile test-reports/junit.xml -- -timeout 1m -count=1 -coverprofile=cp.out -race -skip Integration -v ./...
 
-test.backend.integration.setup:
+backend.test.integration.setup:
 	docker compose up -d
 	@echo "waiting for kafka..."
 	timeout 40s bash -c "until kcat -b localhost:9096 -L -J -X security.protocol=SASL_PLAINTEXT -X sasl.mechanism=SCRAM-SHA-512 -X sasl.username=kafkauser -X sasl.password=kafkapassword 2>/dev/null | jq -e -r '.brokers | length == 1' > /dev/null 2>&1; do sleep 2; done"
 	@echo "dependencies started"
 
-test.backend.integration.run:
+backend.test.integration.run:
 	@mkdir -p test-reports
 	gotestsum --junitfile test-reports/junit.xml -- -timeout 2m -count=1 -coverprofile=cp.out -failfast -race -run Integration -v ./...
 
-test.backend.integration.teardown:
+backend.test.integration.teardown:
 	docker compose down -v
 	docker compose rm -s -f -v
 
-test.backend.integration: test.backend.integration.setup test.backend.integration.run test.backend.integration.teardown
+backend.test.integration: backend.test.integration.setup backend.test.integration.run backend.test.integration.teardown
 
-test.backend.all:
-	@mkdir -p test-reports
+backend.test.all:
 	docker compose up -d
 	@echo "waiting for kafka..."
 	timeout 40s bash -c "until kcat -b localhost:9096 -L -J -X security.protocol=SASL_PLAINTEXT -X sasl.mechanism=SCRAM-SHA-512 -X sasl.username=kafkauser -X sasl.password=kafkapassword 2>/dev/null | jq -e -r '.brokers | length == 1' > /dev/null 2>&1; do sleep 2; done"
@@ -99,7 +98,7 @@ install: build
 
 # === CI Entry Point ===
 # Runs: frontend deps, lint, format-check, TS build, Go lint, backend unit tests.
-# Does NOT run integration tests — use test.backend.integration for that.
+# Does NOT run integration tests — use backend.test.integration for that.
 
 all: frontend.deps frontend.check frontend.build backend.check
 
@@ -123,13 +122,13 @@ help:
 	@echo "  backend.check                  Tidy + lint + unit tests"
 	@echo ""
 	@echo "Tests — Backend:"
-	@echo "  test.backend                   Unit tests, no docker (CI)"
-	@echo "  test.backend.unit              Unit tests with gotestsum + junit"
-	@echo "  test.backend.integration       Integration tests (docker up → run → down)"
-	@echo "  test.backend.integration.setup Start docker services"
-	@echo "  test.backend.integration.run   Run integration tests"
-	@echo "  test.backend.integration.teardown Stop docker services"
-	@echo "  test.backend.all               All backend tests (unit + integration)"
+	@echo "  backend.test                        Unit tests, no docker (CI)"
+	@echo "  backend.test.unit                   Unit tests with gotestsum + junit"
+	@echo "  backend.test.integration            Integration tests (docker up → run → down)"
+	@echo "  backend.test.integration.setup      Start docker services"
+	@echo "  backend.test.integration.run        Run integration tests"
+	@echo "  backend.test.integration.teardown   Stop docker services"
+	@echo "  backend.test.all                    All backend tests (unit + integration)"
 	@echo ""
 	@echo "Project:"
 	@echo "  dev                            Run in dev mode"
