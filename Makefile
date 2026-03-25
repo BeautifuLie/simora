@@ -35,9 +35,6 @@ go-tidy:
 		echo "✅ go.mod tidy check passed."; \
 	fi
 
-go-test:
-	$(GO) test -race -count=1 ./...
-
 .SILENT:go-lint
 go-lint: ## lint Go code
 	original_content=$$(cat go.sum); \
@@ -54,7 +51,38 @@ go-lint.fix: ## auto-fix lint issues (formatting, tidy, etc.)
 	go mod tidy
 	golangci-lint run --fix ./...
 
-go-check: go-tidy go-lint go-test
+go-check: go-tidy go-lint test.backend.unit
+
+# === Tests — Backend ===
+
+test.backend.unit: ## run backend unit tests (no docker)
+	@mkdir -p test-reports
+	gotestsum --junitfile test-reports/junit.xml -- -timeout 1m -count=1 -coverprofile=cp.out -race -skip Integration -v ./...
+
+test.backend.integration.setup: ## start docker services for integration tests
+	docker compose up -d
+	@echo "waiting for kafka..."
+	timeout 40s bash -c "until kcat -b localhost:9096 -L -J -X security.protocol=SASL_PLAINTEXT -X sasl.mechanism=SCRAM-SHA-512 -X sasl.username=kafkauser -X sasl.password=kafkapassword 2>/dev/null | jq -e -r '.brokers | length == 1' > /dev/null 2>&1; do sleep 2; done"
+	@echo "dependencies started"
+
+test.backend.integration.run: ## run backend integration tests (requires docker services)
+	@mkdir -p test-reports
+	gotestsum --junitfile test-reports/junit.xml -- -timeout 2m -count=1 -coverprofile=cp.out -failfast -race -run Integration -v ./...
+
+test.backend.integration.teardown: ## stop and remove docker services
+	docker compose down -v
+	docker compose rm -s -f -v
+
+test.backend.integration: test.backend.integration.setup test.backend.integration.run test.backend.integration.teardown ## run integration tests (docker up → run → docker down)
+
+test.backend.all: ## run all backend tests (unit + integration, docker managed)
+	@mkdir -p test-reports
+	docker compose up -d
+	@echo "waiting for kafka..."
+	timeout 40s bash -c "until kcat -b localhost:9096 -L -J -X security.protocol=SASL_PLAINTEXT -X sasl.mechanism=SCRAM-SHA-512 -X sasl.username=kafkauser -X sasl.password=kafkapassword 2>/dev/null | jq -e -r '.brokers | length == 1' > /dev/null 2>&1; do sleep 2; done"
+	gotestsum --junitfile test-reports/junit.xml -- -timeout 3m -count=1 -coverprofile=cp.out -race -v ./... ; \
+	docker compose down -v ; \
+	docker compose rm -s -f -v
 
 # === Project ===
 
@@ -68,6 +96,8 @@ install: build
 	sudo cp build/bin/simora /usr/local/bin/simora
 
 # === CI Entry Point ===
+# Runs: frontend deps, lint, format-check, TS build, Go lint, backend unit tests.
+# Does NOT run integration tests — use test.backend.integration for that.
 
 all: deps frontend-check frontend-build go-check
 
@@ -78,21 +108,29 @@ help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Frontend:"
-	@echo "  deps              Install frontend deps"
-	@echo "  frontend-lint     Lint frontend"
-	@echo "  frontend-format   Format check"
-	@echo "  frontend-build    Build frontend"
-	@echo "  frontend-check    Lint + format"
+	@echo "  deps                           Install frontend deps"
+	@echo "  frontend-lint                  Lint frontend"
+	@echo "  frontend-format                Format check"
+	@echo "  frontend-build                 Build frontend"
+	@echo "  frontend-check                 Lint + format"
 	@echo ""
 	@echo "Go:"
-	@echo "  go-tidy           Check go.mod/sum"
-	@echo "  go-test           Run Go tests"
-	@echo "  go-lint           Run Go linter"
-	@echo "  go-check          All Go checks"
+	@echo "  go-tidy                        Check go.mod/sum"
+	@echo "  go-lint                        Run Go linter"
+	@echo "  go-lint.fix                    Auto-fix lint issues"
+	@echo "  go-check                       Tidy + lint + unit tests"
+	@echo ""
+	@echo "Tests — Backend:"
+	@echo "  test.backend.unit              Unit tests only (no docker)"
+	@echo "  test.backend.integration       Integration tests (docker up → run → down)"
+	@echo "  test.backend.integration.setup Start docker services"
+	@echo "  test.backend.integration.run   Run integration tests (docker must be up)"
+	@echo "  test.backend.integration.teardown Stop docker services"
+	@echo "  test.backend.all               All backend tests (unit + integration)"
 	@echo ""
 	@echo "Project:"
-	@echo "  dev               Run in dev mode"
-	@echo "  build             Build project"
-	@echo "  install           Build and install to /usr/local/bin"
-	@echo "  all               CI entry point"
-	@echo "  clean             Remove artifacts"
+	@echo "  dev                            Run in dev mode"
+	@echo "  build                          Build project"
+	@echo "  install                        Build and install to /usr/local/bin"
+	@echo "  all                            CI entry point (lint + build + unit tests)"
+	@echo "  clean                          Remove artifacts"

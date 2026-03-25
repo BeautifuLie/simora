@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Integration tests for transport layer (gRPC, Kafka, SQS) with docker-compose; new Makefile targets: `test.backend.unit`, `test.backend.integration`, `test.backend.all`
+
+### Added
 
 - Opt-in crash reporter: enable in Settings → Diagnostics to capture uncaught JS errors as local log files (`~/.config/simora/crashes/`); a dismissible banner appears on the next launch when a crash log is found
 - Auto-update check: 3 seconds after launch the app silently queries the GitHub releases API; if a newer version is available a green "↑ vX.Y.Z" link appears in the status bar
