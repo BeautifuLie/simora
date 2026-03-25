@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -161,6 +162,38 @@ func (s *RequestService) buildClient(cfg domain.Settings, jar http.CookieJar) *h
 	}
 }
 
+// isTextContentType returns true when the Content-Type indicates human-readable text.
+func isTextContentType(ct string) bool {
+	ct = strings.ToLower(strings.TrimSpace(ct))
+	// Strip params (e.g. "; charset=utf-8")
+	if idx := strings.Index(ct, ";"); idx != -1 {
+		ct = strings.TrimSpace(ct[:idx])
+	}
+
+	textTypes := []string{
+		"text/",
+		"application/json",
+		"application/xml",
+		"application/javascript",
+		"application/graphql",
+		"application/x-www-form-urlencoded",
+		"application/ld+json",
+		"application/geo+json",
+		"application/atom+xml",
+		"application/rss+xml",
+		"application/xhtml+xml",
+		"*/*",
+	}
+
+	for _, t := range textTypes {
+		if strings.HasPrefix(ct, t) || ct == t {
+			return true
+		}
+	}
+
+	return ct == ""
+}
+
 // readResponse reads the HTTP response body and returns a domain.Response.
 func readResponse(resp *http.Response, start time.Time) (*domain.Response, error) {
 	const maxResponseSize = 10 * 1024 * 1024 // 10 MB
@@ -170,12 +203,24 @@ func readResponse(resp *http.Response, start time.Time) (*domain.Response, error
 		return nil, fmt.Errorf("read response body: %w", err)
 	}
 
+	ct := resp.Header.Get("Content-Type")
+	isBinary := !isTextContentType(ct)
+
+	var bodyStr string
+	if isBinary {
+		bodyStr = base64.StdEncoding.EncodeToString(respBody)
+	} else {
+		bodyStr = string(respBody)
+	}
+
 	return &domain.Response{
 		StatusCode:       resp.StatusCode,
 		Status:           resp.Status,
 		TimeMilliseconds: time.Since(start).Milliseconds(),
 		SizeBytes:        int64(len(respBody)),
-		Body:             string(respBody),
+		Body:             bodyStr,
 		Headers:          resp.Header,
+		IsBinary:         isBinary,
+		ContentType:      ct,
 	}, nil
 }

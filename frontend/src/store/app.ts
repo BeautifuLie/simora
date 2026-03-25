@@ -1254,6 +1254,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                     size: bodyStr.length,
                     body: bodyStr,
                     headers: {},
+                    isBinary: false,
+                    contentType: '',
                 };
                 set(st =>
                     patchActiveTab(st, {
@@ -1305,6 +1307,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                     size: bodyStr.length,
                     body: bodyStr,
                     headers: {},
+                    isBinary: false,
+                    contentType: '',
                 };
                 set(st =>
                     patchActiveTab(st, {
@@ -1362,6 +1366,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                     size: bodyStr.length,
                     body: bodyStr,
                     headers: {},
+                    isBinary: false,
+                    contentType: '',
                 };
                 set(st =>
                     patchActiveTab(st, {
@@ -1413,6 +1419,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                     size: bodyStr.length,
                     body: bodyStr,
                     headers: {},
+                    isBinary: false,
+                    contentType: '',
                 };
                 set(st =>
                     patchActiveTab(st, {

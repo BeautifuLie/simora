@@ -164,10 +164,11 @@ func SqsSend(ctx context.Context, req SqsSendRequest) (string, error) {
 
 // sqsReceivedMsg is the per-message shape returned in the JSON response.
 type sqsReceivedMsg struct {
-	MessageID     string            `json:"messageId"`
-	Body          string            `json:"body"`
-	ReceiptHandle string            `json:"receiptHandle"`
-	Attributes    map[string]string `json:"attributes,omitempty"`
+	MessageID         string            `json:"messageId"`
+	Body              string            `json:"body"`
+	ReceiptHandle     string            `json:"receiptHandle"`
+	Attributes        map[string]string `json:"attributes,omitempty"`
+	MessageAttributes map[string]string `json:"messageAttributes,omitempty"`
 }
 
 // normaliseSqsReceiveReq applies defaults to fields that are out of range.
@@ -195,11 +196,19 @@ func decodeSqsMessages(out *sqs.ReceiveMessageOutput) []sqsReceivedMsg {
 			attrs[string(k)] = v
 		}
 
+		msgAttrs := make(map[string]string, len(m.MessageAttributes))
+		for k, v := range m.MessageAttributes {
+			if v.StringValue != nil {
+				msgAttrs[k] = *v.StringValue
+			}
+		}
+
 		msgs = append(msgs, sqsReceivedMsg{
-			MessageID:     aws.ToString(m.MessageId),
-			Body:          aws.ToString(m.Body),
-			ReceiptHandle: aws.ToString(m.ReceiptHandle),
-			Attributes:    attrs,
+			MessageID:         aws.ToString(m.MessageId),
+			Body:              aws.ToString(m.Body),
+			ReceiptHandle:     aws.ToString(m.ReceiptHandle),
+			Attributes:        attrs,
+			MessageAttributes: msgAttrs,
 		})
 	}
 

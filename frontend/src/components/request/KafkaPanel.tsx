@@ -5,6 +5,33 @@ import { useAppStore, selectEditing, KafkaSaslMechanism } from '@/store/app';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { ProtocolBadge } from './ProtocolBadge';
 import { RequestNameBar } from './RequestNameBar';
+import { VarInput } from '@/components/ui/VarInput';
+import { VarTextarea } from '@/components/ui/VarTextarea';
+
+// ── Var helpers ────────────────────────────────────────────────────────────
+
+function useVarProps() {
+    const { environments, activeEnvId, organizations } = useAppStore();
+    const path = useAppStore(s => {
+        const tab = s.activeTabId ? s.tabs.find(t => t.id === s.activeTabId) : null;
+        return tab?.path ?? null;
+    });
+    const activeEnv = environments.find(e => e.id === activeEnvId) ?? null;
+    const collectionVars = React.useMemo(() => {
+        if (!path) return [];
+        for (const org of organizations) {
+            for (const proj of org.projects ?? []) {
+                const col = proj.collections?.find(c => c.id === path.collectionId);
+                if (col) return (col as any).variables ?? [];
+            }
+        }
+        return [];
+    }, [path, organizations]);
+    return {
+        envVars: activeEnv?.variables ?? [],
+        collectionVars,
+    };
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -392,6 +419,7 @@ function SchemaRegistryFields() {
 function ProduceMessage() {
     const editing = useAppStore(selectEditing);
     const patchKafka = useAppStore(s => s.patchKafka);
+    const { envVars, collectionVars } = useVarProps();
     if (!editing) return null;
     const isProto = editing.kafka.messageFormat === 'proto';
     const isAvro = editing.kafka.messageFormat === 'avro';
@@ -407,10 +435,12 @@ function ProduceMessage() {
                             (optional)
                         </span>
                     </Label>
-                    <FieldInput
+                    <VarInput
                         value={editing.kafka.key}
                         onChange={v => patchKafka({ key: v })}
                         placeholder="partition key…"
+                        envVars={envVars}
+                        collectionVars={collectionVars}
                     />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
@@ -481,10 +511,10 @@ function ProduceMessage() {
                         </span>
                     )}
                 </Label>
-                <textarea
+                <VarTextarea
                     value={editing.kafka.message}
-                    onChange={e => patchKafka({ message: e.target.value })}
-                    className="flex-1 resize-none bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] leading-relaxed transition-colors duration-150 focus:border-[var(--border-focus)]"
+                    onChange={v => patchKafka({ message: v })}
+                    className="flex-1"
                     style={{
                         padding: 10,
                         fontSize: 'var(--text-base)',
@@ -493,7 +523,8 @@ function ProduceMessage() {
                         border: '1px solid var(--border-1)',
                     }}
                     placeholder={'{\n  "event": "user.created",\n  "data": {}\n}'}
-                    spellCheck={false}
+                    envVars={envVars}
+                    collectionVars={collectionVars}
                 />
             </div>
         </div>
@@ -794,6 +825,7 @@ export function KafkaPanel() {
     const patchKafka = useAppStore(s => s.patchKafka);
     const setActiveTab = useAppStore(s => s.setActiveTab);
     const sendRequest = useAppStore(s => s.sendRequest);
+    const { envVars, collectionVars } = useVarProps();
     const responseLoading = useAppStore(s => {
         const t = s.activeTabId ? s.tabs.find(tab => tab.id === s.activeTabId) : null;
         return t?.responseLoading ?? false;
@@ -822,53 +854,29 @@ export function KafkaPanel() {
             >
                 <ProtocolBadge />
 
-                <div
-                    className="flex items-center rounded-[var(--r-sm)] overflow-hidden transition-colors duration-150 focus-within:border-[var(--border-focus)]"
+                <VarInput
+                    value={editing.kafka.bootstrap}
+                    onChange={v => patchKafka({ bootstrap: v })}
+                    placeholder="localhost:9092"
+                    envVars={envVars}
+                    collectionVars={collectionVars}
                     style={{
                         width: 200,
-                        height: 'var(--input-height)',
-                        border: '1px solid var(--border-1)',
-                        background: 'var(--bg-2)',
                         flexShrink: 0,
+                        fontFamily: "'JetBrains Mono Variable', monospace",
                     }}
-                >
-                    <input
-                        value={editing.kafka.bootstrap}
-                        onChange={e => patchKafka({ bootstrap: e.target.value })}
-                        placeholder="localhost:9092"
-                        className="w-full bg-transparent outline-none h-full"
-                        style={{
-                            padding: '0 10px',
-                            fontSize: 'var(--text-base)',
-                            fontFamily: "'JetBrains Mono Variable', monospace",
-                            color: 'var(--text-0)',
-                        }}
-                        spellCheck={false}
-                    />
-                </div>
+                />
 
-                <div
-                    className="flex-1 flex items-center rounded-[var(--r-sm)] overflow-hidden transition-colors duration-150 focus-within:border-[var(--border-focus)]"
+                <VarInput
+                    value={editing.kafka.topic}
+                    onChange={v => patchKafka({ topic: v })}
+                    placeholder="topic-name"
+                    envVars={envVars}
+                    collectionVars={collectionVars}
                     style={{
-                        height: 'var(--input-height)',
-                        border: '1px solid var(--border-1)',
-                        background: 'var(--bg-2)',
+                        fontFamily: "'JetBrains Mono Variable', monospace",
                     }}
-                >
-                    <input
-                        value={editing.kafka.topic}
-                        onChange={e => patchKafka({ topic: e.target.value })}
-                        placeholder="topic-name"
-                        className="w-full bg-transparent outline-none h-full"
-                        style={{
-                            padding: '0 10px',
-                            fontSize: 'var(--text-base)',
-                            fontFamily: "'JetBrains Mono Variable', monospace",
-                            color: 'var(--orange)',
-                        }}
-                        spellCheck={false}
-                    />
-                </div>
+                />
 
                 <ModeToggle />
 

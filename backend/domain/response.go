@@ -7,4 +7,6 @@ type Response struct {
 	SizeBytes        int64               `json:"size"`
 	Body             string              `json:"body"`
 	Headers          map[string][]string `json:"headers"`
+	IsBinary         bool                `json:"isBinary"`
+	ContentType      string              `json:"contentType"`
 }

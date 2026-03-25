@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `VarInput` and `VarTextarea` components: inline `{{variable}}` token highlighting (green = known, red = unknown) and autocomplete dropdown on `{{`; wired into URL bar, header values, body editor, Kafka bootstrap/topic/key/message, and SQS queue URL/message body
+- Response truncation amber banner shown above the body when output exceeds 200 KB
+- Binary HTTP response handling: non-text Content-Types are base64-encoded in the backend and displayed as a binary viewer with content-type badge, file size, and "Save to file" button instead of attempted syntax highlighting
+- SQS receive now includes `messageAttributes` (user-defined) alongside system `attributes` in the JSON result
+
+### Fixed
+- HTTP responses with binary content (images, octet-stream, etc.) no longer corrupt the body by forcing UTF-8 string conversion; the backend detects the Content-Type and base64-encodes binary payloads
+- gzip/brotli decompression: confirmed the Go HTTP client does not have `DisableCompression` set, so responses are auto-decompressed by the standard library
+
+### Added
 - Integration tests for transport layer (gRPC, Kafka, SQS) with docker-compose; new Makefile targets: `test.backend.unit`, `test.backend.integration`, `test.backend.all`
 - `PasswordInput` component with eye-icon toggle for all sensitive credential fields (bearer token, basic auth password, API key value, Kafka SASL password, Schema Registry password, SQS secret access key, session token)
 - Inline security warnings: SASL PLAIN without TLS warns credentials are sent unencrypted; Schema Registry over `http://` with credentials warns about unencrypted transport
