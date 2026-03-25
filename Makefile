@@ -51,11 +51,14 @@ go-lint.fix: ## auto-fix lint issues (formatting, tidy, etc.)
 	go mod tidy
 	golangci-lint run --fix ./...
 
-go-check: go-tidy go-lint test.backend.unit
+go-check: go-tidy go-lint test.backend
 
 # === Tests — Backend ===
 
-test.backend.unit: ## run backend unit tests (no docker)
+test.backend: ## unit tests, plain go test — used by CI via make all
+	$(GO) test -race -count=1 -skip Integration ./...
+
+test.backend.unit: ## unit tests with gotestsum + junit report (local)
 	@mkdir -p test-reports
 	gotestsum --junitfile test-reports/junit.xml -- -timeout 1m -count=1 -coverprofile=cp.out -race -skip Integration -v ./...
 
