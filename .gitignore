@@ -40,7 +40,7 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# Optional lockfiles 
+# Optional lockfiles
 pnpm-lock.yaml
 yarn.lock
 
@@ -49,6 +49,9 @@ yarn.lock
 
 # Coverage
 coverage/
+cp.out
+
+test-reports/
 
 .claude
 CLAUDE.md
