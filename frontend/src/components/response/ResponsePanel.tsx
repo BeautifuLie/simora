@@ -1782,6 +1782,19 @@ export function ResponsePanel() {
 
                 {response && !responseLoading && (
                     <>
+                        {response.truncated && (
+                            <div
+                                style={{
+                                    background: 'rgba(245,158,11,0.12)',
+                                    color: '#f59e0b',
+                                    padding: '4px 12px',
+                                    fontSize: '0.78rem',
+                                    borderBottom: '1px solid rgba(245,158,11,0.3)',
+                                }}
+                            >
+                                Response body truncated at 10 MB — only the first 10 MB is shown.
+                            </div>
+                        )}
                         {activeResponseTab === 'body' &&
                             (response.isBinary ? (
                                 <BinaryBodyTab

@@ -374,15 +374,20 @@ export function EnvPanel() {
                     className="flex items-center justify-between shrink-0 px-4"
                     style={{ height: 44, borderBottom: '1px solid var(--border-0)' }}
                 >
-                    <span
-                        style={{
-                            fontSize: 'var(--text-md)',
-                            fontWeight: 600,
-                            color: 'var(--text-0)',
-                        }}
-                    >
-                        Environments
-                    </span>
+                    <div>
+                        <span
+                            style={{
+                                fontSize: 'var(--text-md)',
+                                fontWeight: 600,
+                                color: 'var(--text-0)',
+                            }}
+                        >
+                            Environments
+                        </span>
+                        <div style={{ fontSize: 10.5, color: 'var(--text-2)', marginTop: 1 }}>
+                            Shared across all workspaces
+                        </div>
+                    </div>
                     <button
                         className="flex items-center justify-center rounded cursor-pointer transition-colors duration-150 hover:bg-[var(--bg-3)]"
                         style={{ width: 24, height: 24, color: 'var(--text-2)' }}
