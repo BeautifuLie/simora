@@ -63,7 +63,7 @@ function renderHighlighted(text: string, knownVars: Set<string>): string {
         const known = varName !== '' && knownVars.has(varName);
         const color = known ? '#4ade80' : '#f87171';
         const bg = known ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)';
-        result += `<span style="color:${color};background:${bg};border-radius:3px;padding:0 2px">${esc(token)}</span>`;
+        result += `<span style="color:${color};background:${bg};border-radius:3px">${esc(token)}</span>`;
         i = end + 2;
     }
     return result;
@@ -203,6 +203,8 @@ export function VarInput({
                     border: 'none',
                     background: 'transparent',
                     height: '100%',
+                    WebkitUserSelect: 'none' as any,
+                    userSelect: 'none' as any,
                 }}
                 dangerouslySetInnerHTML={{ __html: highlighted }}
             />

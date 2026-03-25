@@ -190,6 +190,13 @@ interface AppState {
         _collectionId: string,
         _name: string
     ) => void;
+    createSubFolder: (
+        _orgId: string,
+        _projectId: string,
+        _collectionId: string,
+        _parentFolderId: string,
+        _name: string
+    ) => void;
     renameFolder: (
         _orgId: string,
         _projectId: string,
@@ -1670,6 +1677,49 @@ export const useAppStore = create<AppState>((set, get) => ({
             OrganizationService.CreateFolder(orgId, projectId, collectionId, '', id, name).catch(
                 console.error
             );
+    },
+
+    createSubFolder: (orgId, projectId, collectionId, parentFolderId, name) => {
+        const id = crypto.randomUUID();
+        const newFolder = domain.Folder.createFrom({ id, name, requests: [], folders: [] });
+        function insertInto(folders: any[]): any[] {
+            return folders.map(f => {
+                if (f.id === parentFolderId) {
+                    return { ...f, folders: [...(f.folders ?? []), newFolder] };
+                }
+                if (f.folders?.length) {
+                    return { ...f, folders: insertInto(f.folders) };
+                }
+                return f;
+            });
+        }
+        set(s => ({
+            organizations: s.organizations.map(org => {
+                if (org.id !== orgId) return org;
+                return {
+                    ...org,
+                    projects: org.projects?.map(proj => {
+                        if (proj.id !== projectId) return proj;
+                        return {
+                            ...proj,
+                            collections: proj.collections?.map(col => {
+                                if (col.id !== collectionId) return col;
+                                return { ...col, folders: insertInto(col.folders ?? []) };
+                            }),
+                        };
+                    }),
+                };
+            }) as Organization[],
+        }));
+        if (isWails)
+            OrganizationService.CreateFolder(
+                orgId,
+                projectId,
+                collectionId,
+                parentFolderId,
+                id,
+                name
+            ).catch(console.error);
     },
 
     renameFolder: (orgId, projectId, collectionId, folderId, name) => {

@@ -483,6 +483,7 @@ function WorkspaceSwitcher({
                                 top: (ref.current?.getBoundingClientRect().bottom ?? 0) + 6,
                                 left: ref.current?.getBoundingClientRect().left ?? 0,
                                 minWidth: 220,
+                                width: ref.current?.getBoundingClientRect().width ?? 220,
                                 background: 'var(--bg-3)',
                                 border: '1px solid var(--border-2)',
                                 borderRadius: 'var(--r-md)',
@@ -702,6 +703,16 @@ function ProjectRow({
                     background: isActive ? 'var(--bg-2)' : 'transparent',
                 }}
                 onClick={() => !renaming && onSelect()}
+                onDoubleClick={e => {
+                    e.stopPropagation();
+                    setRenaming(true);
+                }}
+                onKeyDown={e => {
+                    if (e.key === 'F2') {
+                        e.preventDefault();
+                        setRenaming(true);
+                    }
+                }}
                 onContextMenu={openCtx}
             >
                 {/* Active left accent */}
@@ -764,7 +775,7 @@ function ProjectRow({
                 {/* More button */}
                 {!renaming && (
                     <button
-                        className="shrink-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-[var(--bg-3)]"
+                        className="shrink-0 flex items-center justify-center rounded opacity-40 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-[var(--bg-3)]"
                         style={{ width: 20, height: 20, color: 'var(--text-2)' }}
                         onClick={e => {
                             e.stopPropagation();
@@ -1041,7 +1052,7 @@ function RequestItem({
                         />
                     )}
                     <button
-                        className="shrink-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-[var(--bg-3)]"
+                        className="shrink-0 flex items-center justify-center rounded opacity-40 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-[var(--bg-3)]"
                         style={{ width: 20, height: 20, color: 'var(--text-2)', marginRight: -4 }}
                         onClick={e => {
                             e.stopPropagation();
@@ -1076,8 +1087,14 @@ function FolderItem({
     selectedIds?: Set<string>;
     onToggleSelect?: (_id: string, _e: React.MouseEvent) => void;
 }) {
-    const { renameFolder, deleteFolder, duplicateFolder, moveRequest, reorderFolder } =
-        useAppStore();
+    const {
+        renameFolder,
+        deleteFolder,
+        duplicateFolder,
+        moveRequest,
+        reorderFolder,
+        createSubFolder,
+    } = useAppStore();
     const [open, setOpen] = React.useState(true);
     const [renaming, setRenaming] = React.useState(false);
     const [dropOver, setDropOver] = React.useState(false);
@@ -1086,6 +1103,12 @@ function FolderItem({
     const { pos, open: openCtx, close: closeCtx } = useContextMenu();
 
     const ctxItems: CtxItem[] = [
+        {
+            label: 'New folder',
+            icon: ({ style }) => <Folder style={style} />,
+            action: () => createSubFolder(orgId, projectId, collectionId, folder.id, 'New Folder'),
+        },
+        { label: 'divider' as any, action: () => {}, divider: true },
         {
             label: 'Rename',
             icon: ({ style }) => <Pencil style={style} />,
@@ -1117,11 +1140,18 @@ function FolderItem({
                     outline: dropOver ? '2px solid var(--accent)' : 'none',
                     outlineOffset: -2,
                 }}
+                tabIndex={0}
                 draggable={!renaming}
                 onClick={() => !renaming && setOpen(v => !v)}
                 onDoubleClick={e => {
                     e.stopPropagation();
                     setRenaming(true);
+                }}
+                onKeyDown={e => {
+                    if (e.key === 'F2') {
+                        e.preventDefault();
+                        setRenaming(true);
+                    }
                 }}
                 onContextMenu={openCtx}
                 onDragStart={e => {
@@ -1248,7 +1278,7 @@ function FolderItem({
                             {folder.name}
                         </span>
                         <button
-                            className="shrink-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-[var(--bg-3)]"
+                            className="shrink-0 flex items-center justify-center rounded opacity-40 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-[var(--bg-3)]"
                             style={{
                                 width: 20,
                                 height: 20,
@@ -1279,6 +1309,18 @@ function FolderItem({
                             selected={selectedIds?.has(req.id)}
                             onToggleSelect={onToggleSelect}
                             hasSelection={(selectedIds?.size ?? 0) > 0}
+                        />
+                    ))}
+                    {(folder.folders ?? []).map((sub: any) => (
+                        <FolderItem
+                            key={sub.id}
+                            folder={sub}
+                            collectionId={collectionId}
+                            orgId={orgId}
+                            projectId={projectId}
+                            searchQuery={searchQuery}
+                            selectedIds={selectedIds}
+                            onToggleSelect={onToggleSelect}
                         />
                     ))}
                 </div>
