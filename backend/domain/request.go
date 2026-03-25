@@ -37,14 +37,22 @@ type GrpcConfig struct {
 }
 
 type KafkaConfig struct {
-	Bootstrap string          `json:"bootstrap"`
-	Topic     string          `json:"topic"`
-	Key       string          `json:"key"`
-	Message   string          `json:"message"`
-	Headers   []RequestHeader `json:"headers"`
-	Mode      string          `json:"mode"`
-	Group     string          `json:"group"`
-	Offset    string          `json:"offset"`
+	Bootstrap              string          `json:"bootstrap"`
+	Topic                  string          `json:"topic"`
+	Key                    string          `json:"key"`
+	Message                string          `json:"message"`
+	Headers                []RequestHeader `json:"headers"`
+	Mode                   string          `json:"mode"`
+	Group                  string          `json:"group"`
+	Offset                 string          `json:"offset"`
+	SaslMechanism          string          `json:"saslMechanism"`
+	SaslUsername           string          `json:"saslUsername"`
+	SaslPassword           string          `json:"saslPassword"`
+	TLS                    bool            `json:"tls"`
+	SchemaRegistryURL      string          `json:"schemaRegistryUrl"`
+	SchemaRegistrySubject  string          `json:"schemaRegistrySubject"`
+	SchemaRegistryUsername string          `json:"schemaRegistryUsername"`
+	SchemaRegistryPassword string          `json:"schemaRegistryPassword"`
 }
 
 type SqsAttribute struct {
@@ -60,6 +68,9 @@ type SqsConfig struct {
 	Region       string         `json:"region"`
 	DelaySeconds int            `json:"delaySeconds"`
 	Attributes   []SqsAttribute `json:"attributes"`
+	AccessKeyID  string         `json:"accessKeyId"`
+	SecretKey    string         `json:"secretKey"`
+	SessionToken string         `json:"sessionToken"`
 }
 
 type WsConfig struct {

@@ -1,7 +1,8 @@
 import React from 'react';
-import { Send, Plus, X, Loader2, ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { Send, Plus, X, Loader2, ChevronDown } from 'lucide-react';
 import { cn, shortcut } from '@/lib/utils';
 import { useAppStore, selectEditing, KafkaSaslMechanism } from '@/store/app';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { ProtocolBadge } from './ProtocolBadge';
 import { RequestNameBar } from './RequestNameBar';
 
@@ -317,7 +318,6 @@ function FormatToggle() {
 function SchemaRegistryFields() {
     const editing = useAppStore(selectEditing);
     const patchKafka = useAppStore(s => s.patchKafka);
-    const [showPass, setShowPass] = React.useState(false);
     if (!editing) return null;
 
     return (
@@ -362,37 +362,29 @@ function SchemaRegistryFields() {
                             (optional)
                         </span>
                     </Label>
-                    <div className="relative">
-                        <input
-                            type={showPass ? 'text' : 'password'}
-                            value={editing.kafka.schemaRegistryPassword}
-                            onChange={e => patchKafka({ schemaRegistryPassword: e.target.value })}
-                            placeholder="••••••••"
-                            className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] focus:border-[var(--border-focus)] transition-colors"
-                            style={{
-                                height: 'var(--input-height)',
-                                padding: '0 36px 0 10px',
-                                fontSize: 'var(--text-base)',
-                                fontFamily: "'JetBrains Mono Variable', monospace",
-                                color: 'var(--text-0)',
-                                border: '1px solid var(--border-1)',
-                            }}
-                            spellCheck={false}
-                        />
-                        <button
-                            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer transition-colors hover:text-[var(--text-1)]"
-                            style={{ color: 'var(--text-2)' }}
-                            onClick={() => setShowPass(v => !v)}
-                        >
-                            {showPass ? (
-                                <EyeOff style={{ width: 14, height: 14 }} />
-                            ) : (
-                                <Eye style={{ width: 14, height: 14 }} />
-                            )}
-                        </button>
-                    </div>
+                    <PasswordInput
+                        value={editing.kafka.schemaRegistryPassword}
+                        onChange={v => patchKafka({ schemaRegistryPassword: v })}
+                    />
                 </div>
             </div>
+            {/* Security warning: credentials over unencrypted HTTP */}
+            {editing.kafka.schemaRegistryUrl.startsWith('http://') &&
+                editing.kafka.schemaRegistryUsername !== '' && (
+                    <div
+                        style={{
+                            padding: '7px 10px',
+                            borderRadius: 'var(--r-sm)',
+                            background: 'color-mix(in srgb, #f59e0b 10%, transparent)',
+                            border: '1px solid color-mix(in srgb, #f59e0b 30%, transparent)',
+                            fontSize: 11.5,
+                            color: '#f59e0b',
+                            lineHeight: 1.5,
+                        }}
+                    >
+                        Schema Registry credentials sent over unencrypted HTTP
+                    </div>
+                )}
         </div>
     );
 }
@@ -629,14 +621,30 @@ function ConsumeConfig() {
                                 (optional)
                             </span>
                         </Label>
-                        <FieldInput
+                        <PasswordInput
                             value={editing.kafka.schemaRegistryPassword}
                             onChange={v => patchKafka({ schemaRegistryPassword: v })}
-                            placeholder="password"
                         />
                     </div>
                 </div>
             )}
+            {/* Security warning: credentials over unencrypted HTTP (consume tab) */}
+            {editing.kafka.schemaRegistryUrl.startsWith('http://') &&
+                editing.kafka.schemaRegistryUsername !== '' && (
+                    <div
+                        style={{
+                            padding: '7px 10px',
+                            borderRadius: 'var(--r-sm)',
+                            background: 'color-mix(in srgb, #f59e0b 10%, transparent)',
+                            border: '1px solid color-mix(in srgb, #f59e0b 30%, transparent)',
+                            fontSize: 11.5,
+                            color: '#f59e0b',
+                            lineHeight: 1.5,
+                        }}
+                    >
+                        Schema Registry credentials sent over unencrypted HTTP
+                    </div>
+                )}
         </div>
     );
 }
@@ -653,7 +661,6 @@ const SASL_MECHANISMS: { id: KafkaSaslMechanism; label: string }[] = [
 function AuthTab() {
     const editing = useAppStore(selectEditing);
     const patchKafka = useAppStore(s => s.patchKafka);
-    const [showPass, setShowPass] = React.useState(false);
     if (!editing) return null;
 
     const { saslMechanism, saslUsername, saslPassword, tls } = editing.kafka;
@@ -741,35 +748,27 @@ function AuthTab() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <Label>Password</Label>
-                        <div className="relative">
-                            <input
-                                type={showPass ? 'text' : 'password'}
-                                value={saslPassword}
-                                onChange={e => patchKafka({ saslPassword: e.target.value })}
-                                placeholder="••••••••"
-                                className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] focus:border-[var(--border-focus)] transition-colors"
-                                style={{
-                                    height: 'var(--input-height)',
-                                    padding: '0 36px 0 10px',
-                                    fontSize: 'var(--text-base)',
-                                    color: 'var(--text-0)',
-                                    border: '1px solid var(--border-1)',
-                                }}
-                                spellCheck={false}
-                            />
-                            <button
-                                className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer transition-colors hover:text-[var(--text-1)]"
-                                style={{ color: 'var(--text-2)' }}
-                                onClick={() => setShowPass(v => !v)}
-                            >
-                                {showPass ? (
-                                    <EyeOff style={{ width: 14, height: 14 }} />
-                                ) : (
-                                    <Eye style={{ width: 14, height: 14 }} />
-                                )}
-                            </button>
-                        </div>
+                        <PasswordInput
+                            value={saslPassword}
+                            onChange={v => patchKafka({ saslPassword: v })}
+                        />
                     </div>
+                    {/* Security warning: SASL PLAIN without TLS */}
+                    {saslMechanism === 'plain' && !tls && (
+                        <div
+                            style={{
+                                padding: '7px 10px',
+                                borderRadius: 'var(--r-sm)',
+                                background: 'color-mix(in srgb, #f59e0b 10%, transparent)',
+                                border: '1px solid color-mix(in srgb, #f59e0b 30%, transparent)',
+                                fontSize: 11.5,
+                                color: '#f59e0b',
+                                lineHeight: 1.5,
+                            }}
+                        >
+                            SASL PLAIN without TLS sends credentials unencrypted
+                        </div>
+                    )}
                 </>
             )}
         </div>

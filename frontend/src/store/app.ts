@@ -275,6 +275,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     customBgDark: '#101116',
     customBgLight: '#e8eaf5',
     crashReporterEnabled: false,
+    autoUpdate: true,
 };
 
 // ── URL helpers ────────────────────────────────────────────────────────────

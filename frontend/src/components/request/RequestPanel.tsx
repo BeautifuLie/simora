@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn, shortcut } from '@/lib/utils';
 import { MethodBadge } from '@/components/ui/badge';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import {
     useAppStore,
     selectEditing,
@@ -784,11 +785,10 @@ function AuthEditor() {
                 {type === 'bearer' && (
                     <div className="flex flex-col gap-1.5">
                         <FieldLabel>Token</FieldLabel>
-                        <FieldInput
-                            type="text"
-                            placeholder="Bearer token or {{token}}"
+                        <PasswordInput
                             value={auth.token}
-                            onChange={e => setAuth({ token: e.target.value })}
+                            onChange={v => setAuth({ token: v })}
+                            placeholder="Bearer token or {{token}}"
                         />
                     </div>
                 )}
@@ -806,11 +806,9 @@ function AuthEditor() {
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <FieldLabel>Password</FieldLabel>
-                            <FieldInput
-                                type="password"
-                                placeholder="••••••••"
+                            <PasswordInput
                                 value={auth.password}
-                                onChange={e => setAuth({ password: e.target.value })}
+                                onChange={v => setAuth({ password: v })}
                             />
                         </div>
                     </div>
@@ -829,11 +827,10 @@ function AuthEditor() {
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <FieldLabel>Value</FieldLabel>
-                            <FieldInput
-                                type="text"
-                                placeholder="{{api_key}}"
+                            <PasswordInput
                                 value={auth.headerValue}
-                                onChange={e => setAuth({ headerValue: e.target.value })}
+                                onChange={v => setAuth({ headerValue: v })}
+                                placeholder="{{api_key}}"
                             />
                         </div>
                     </div>
@@ -1864,6 +1861,7 @@ export function RequestPanel() {
         const t = s.activeTabId ? s.tabs.find(tab => tab.id === s.activeTabId) : null;
         return t?.responseLoading ?? false;
     });
+    const validateSsl = useAppStore(s => s.settings.validateSsl);
     const activeEnv = environments.find(e => e.id === activeEnvId) ?? null;
 
     // Auto-save with debounce
@@ -1989,6 +1987,24 @@ export function RequestPanel() {
                             spellCheck={false}
                         />
                     </div>
+
+                    {!validateSsl && (
+                        <span
+                            className="shrink-0 rounded-[var(--r-sm)]"
+                            style={{
+                                fontSize: 10.5,
+                                fontWeight: 600,
+                                padding: '3px 7px',
+                                color: '#f59e0b',
+                                background: 'color-mix(in srgb, #f59e0b 12%, transparent)',
+                                border: '1px solid color-mix(in srgb, #f59e0b 35%, transparent)',
+                                letterSpacing: '0.03em',
+                            }}
+                            title="SSL certificate verification is disabled in Settings"
+                        >
+                            SSL verification off
+                        </span>
+                    )}
 
                     <button
                         className="flex items-center gap-1.5 rounded-[var(--r-sm)] shrink-0 cursor-pointer select-none transition-all duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-50"

@@ -265,4 +265,5 @@ export interface AppSettings {
     customBgDark: string; // custom dark bg-0 hex
     customBgLight: string; // custom light bg-0 hex
     crashReporterEnabled: boolean; // opt-in local crash log
+    autoUpdate: boolean; // check for updates on startup
 }
