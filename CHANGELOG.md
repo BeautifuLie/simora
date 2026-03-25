@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Right-click on organizations in the workspace dropdown no longer shows the browser context menu (PR #32)
+- Workspace dropdown action buttons (rename/delete) are now visible at rest with 40% opacity, not fully hidden until hover (PR #32)
+- Workspace dropdown divider no longer appears when there are no workspaces (PR #32)
+- Folder context menu now includes a "New request" item to create a request directly inside the folder (PR #32)
+- Unsaved-changes blue dot on tab now shows "Unsaved changes" tooltip on hover (PR #32)
+
 ## [v0.2.0] - 2026-03-25
 
 ### Added
