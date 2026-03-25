@@ -51,7 +51,10 @@ go-lint.fix: ## auto-fix lint issues (formatting, tidy, etc.)
 	go mod tidy
 	golangci-lint run --fix ./...
 
-go-check: go-tidy go-lint test.backend.unit
+go-test: ## run backend unit tests (plain go test, no gotestsum — used by CI via make all)
+	$(GO) test -race -count=1 -skip Integration ./...
+
+go-check: go-tidy go-lint go-test
 
 # === Tests — Backend ===
 
