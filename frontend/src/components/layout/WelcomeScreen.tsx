@@ -102,471 +102,418 @@ const FEATURES = [
 // ── WelcomeScreen ─────────────────────────────────────────────────────────
 
 export function WelcomeScreen() {
-    const { createOrganization, createProject, setActiveOrg, setActiveProject, organizations } =
-        useAppStore();
-    const [loading, setLoading] = React.useState(false);
-    const mountedRef = React.useRef(true);
-    React.useEffect(
-        () => () => {
-            mountedRef.current = false;
-        },
-        []
-    );
+    const { createOrganization, createProject, organizations } = useAppStore();
 
+    // Zustand is synchronous — read state immediately after mutations via getState()
     function handleGetStarted() {
-        setLoading(true);
-        const orgId = crypto.randomUUID();
-        const projId = crypto.randomUUID();
         createOrganization('My Workspace');
-        // createOrganization uses its own id logic; read back from state
-        // Use setTimeout to let store settle, then navigate
-        const t1 = setTimeout(() => {
-            if (!mountedRef.current) return;
-            const orgs = useAppStore.getState().organizations;
-            const org = orgs[orgs.length - 1];
-            if (!org) {
-                setLoading(false);
-                return;
-            }
-            createProject(org.id, 'Default Project');
-            const t2 = setTimeout(() => {
-                if (!mountedRef.current) return;
-                const updatedOrg = useAppStore.getState().organizations.find(o => o.id === org.id);
-                const proj = updatedOrg?.projects?.[updatedOrg.projects.length - 1];
-                if (!proj) {
-                    setLoading(false);
-                    return;
-                }
-                setActiveOrg(org.id);
-                setActiveProject(proj.id);
-                setLoading(false);
-            }, 0);
-            void t2;
-        }, 0);
-        void t1;
-        void orgId;
-        void projId;
+        const org = useAppStore.getState().organizations.at(-1);
+        if (!org) return;
+        createProject(org.id, 'Default Project');
+        const proj = useAppStore
+            .getState()
+            .organizations.find(o => o.id === org.id)
+            ?.projects?.at(-1);
+        if (!proj) return;
+        const { setActiveOrg, setActiveProject } = useAppStore.getState();
+        setActiveOrg(org.id);
+        setActiveProject(proj.id);
     }
 
     function handleLoadSamples() {
-        setLoading(true);
-
         createOrganization('Sample Workspace');
-        const t1 = setTimeout(() => {
-            if (!mountedRef.current) return;
-            const orgs = useAppStore.getState().organizations;
-            const org = orgs[orgs.length - 1];
-            if (!org) {
-                setLoading(false);
-                return;
-            }
+        const org = useAppStore.getState().organizations.at(-1);
+        if (!org) return;
+        createProject(org.id, 'Demo Project');
+        const proj = useAppStore
+            .getState()
+            .organizations.find(o => o.id === org.id)
+            ?.projects?.at(-1);
+        if (!proj) return;
 
-            createProject(org.id, 'Demo Project');
-            const t2 = setTimeout(() => {
-                if (!mountedRef.current) return;
-                const updatedOrg = useAppStore.getState().organizations.find(o => o.id === org.id);
-                const proj = updatedOrg?.projects?.[updatedOrg.projects.length - 1];
-                if (!proj) {
-                    setLoading(false);
-                    return;
-                }
+        const { importCollection, setActiveOrg, setActiveProject, setActiveCollection, openTab } =
+            useAppStore.getState();
+        const colId = crypto.randomUUID();
 
-                const { importCollection, setActiveCollection, openTab } = useAppStore.getState();
-                const colId = crypto.randomUUID();
+        // ── HTTP requests ──────────────────────────────────────────
+        const httpGetId = crypto.randomUUID();
+        const httpPostId = crypto.randomUUID();
+        const httpPutId = crypto.randomUUID();
+        const httpDeleteId = crypto.randomUUID();
+        const httpAuthId = crypto.randomUUID();
 
-                // ── HTTP requests ──────────────────────────────────────────
-                const httpGetId = crypto.randomUUID();
-                const httpPostId = crypto.randomUUID();
-                const httpPutId = crypto.randomUUID();
-                const httpDeleteId = crypto.randomUUID();
-                const httpAuthId = crypto.randomUUID();
+        // ── GraphQL ────────────────────────────────────────────────
+        const gqlQueryId = crypto.randomUUID();
+        const gqlCountryId = crypto.randomUUID();
 
-                // ── GraphQL ────────────────────────────────────────────────
-                const gqlQueryId = crypto.randomUUID();
-                const gqlCountryId = crypto.randomUUID();
+        // ── WebSocket ──────────────────────────────────────────────
+        const wsId = crypto.randomUUID();
 
-                // ── WebSocket ──────────────────────────────────────────────
-                const wsId = crypto.randomUUID();
+        // ── gRPC ───────────────────────────────────────────────────
+        const grpcId = crypto.randomUUID();
 
-                // ── gRPC ───────────────────────────────────────────────────
-                const grpcId = crypto.randomUUID();
-
-                const col = {
-                    id: colId,
-                    name: 'Sample Requests',
-                    requests: [],
-                    folders: [
+        const col = {
+            id: colId,
+            name: 'Sample Requests',
+            requests: [],
+            folders: [
+                {
+                    id: crypto.randomUUID(),
+                    name: 'HTTP / REST',
+                    requests: [
                         {
-                            id: crypto.randomUUID(),
-                            name: 'HTTP / REST',
-                            requests: [
-                                {
-                                    id: httpGetId,
-                                    name: 'GET — list users',
-                                    protocol: 'http',
-                                    method: 'GET',
-                                    url: 'https://jsonplaceholder.typicode.com/users',
-                                    params: [{ key: '_limit', value: '5', enabled: true }],
-                                    headers: [
-                                        { key: 'Accept', value: 'application/json', enabled: true },
-                                    ],
-                                    body: '',
-                                    bodyType: 'none',
-                                    formFields: [],
-                                    binaryFileName: '',
-                                    auth: {
-                                        type: 'none',
-                                        token: '',
-                                        username: '',
-                                        password: '',
-                                        headerName: '',
-                                        headerValue: '',
-                                        oauth2GrantType: '',
-                                        oauth2ClientId: '',
-                                        oauth2ClientSecret: '',
-                                        oauth2TokenUrl: '',
-                                        oauth2Scope: '',
-                                        oauth2AccessToken: '',
-                                    },
-                                    notes: 'Returns a list of users. Try the _limit param to control how many come back.',
-                                    tests: 'pm.test("Status is 200", () => pm.response.to.have.status(200));\npm.test("Returns array", () => {\n  const body = pm.response.json();\n  pm.expect(Array.isArray(body)).to.be.true;\n});',
-                                } as any,
-                                {
-                                    id: httpPostId,
-                                    name: 'POST — create post',
-                                    protocol: 'http',
-                                    method: 'POST',
-                                    url: 'https://jsonplaceholder.typicode.com/posts',
-                                    params: [],
-                                    headers: [
-                                        {
-                                            key: 'Content-Type',
-                                            value: 'application/json',
-                                            enabled: true,
-                                        },
-                                    ],
-                                    body: JSON.stringify(
-                                        {
-                                            title: 'Hello from Simora',
-                                            body: 'This is a sample POST request',
-                                            userId: 1,
-                                        },
-                                        null,
-                                        2
-                                    ),
-                                    bodyType: 'json',
-                                    formFields: [],
-                                    binaryFileName: '',
-                                    auth: {
-                                        type: 'none',
-                                        token: '',
-                                        username: '',
-                                        password: '',
-                                        headerName: '',
-                                        headerValue: '',
-                                        oauth2GrantType: '',
-                                        oauth2ClientId: '',
-                                        oauth2ClientSecret: '',
-                                        oauth2TokenUrl: '',
-                                        oauth2Scope: '',
-                                        oauth2AccessToken: '',
-                                    },
-                                    notes: 'Creates a new post. JSONPlaceholder is a fake API — it returns 201 but nothing is persisted.',
-                                    tests: 'pm.test("Status is 201", () => pm.response.to.have.status(201));\npm.test("Has id", () => {\n  const body = pm.response.json();\n  pm.expect(body).to.have.property("id");\n});',
-                                } as any,
-                                {
-                                    id: httpPutId,
-                                    name: 'PUT — update post',
-                                    protocol: 'http',
-                                    method: 'PUT',
-                                    url: 'https://jsonplaceholder.typicode.com/posts/1',
-                                    params: [],
-                                    headers: [
-                                        {
-                                            key: 'Content-Type',
-                                            value: 'application/json',
-                                            enabled: true,
-                                        },
-                                    ],
-                                    body: JSON.stringify(
-                                        {
-                                            id: 1,
-                                            title: 'Updated title',
-                                            body: 'Updated body content',
-                                            userId: 1,
-                                        },
-                                        null,
-                                        2
-                                    ),
-                                    bodyType: 'json',
-                                    formFields: [],
-                                    binaryFileName: '',
-                                    auth: {
-                                        type: 'none',
-                                        token: '',
-                                        username: '',
-                                        password: '',
-                                        headerName: '',
-                                        headerValue: '',
-                                        oauth2GrantType: '',
-                                        oauth2ClientId: '',
-                                        oauth2ClientSecret: '',
-                                        oauth2TokenUrl: '',
-                                        oauth2Scope: '',
-                                        oauth2AccessToken: '',
-                                    },
-                                    notes: 'Full update of a post. Use PATCH to update only specific fields.',
-                                    tests: 'pm.test("Status is 200", () => pm.response.to.have.status(200));',
-                                } as any,
-                                {
-                                    id: httpDeleteId,
-                                    name: 'DELETE — remove post',
-                                    protocol: 'http',
-                                    method: 'DELETE',
-                                    url: 'https://jsonplaceholder.typicode.com/posts/1',
-                                    params: [],
-                                    headers: [],
-                                    body: '',
-                                    bodyType: 'none',
-                                    formFields: [],
-                                    binaryFileName: '',
-                                    auth: {
-                                        type: 'none',
-                                        token: '',
-                                        username: '',
-                                        password: '',
-                                        headerName: '',
-                                        headerValue: '',
-                                        oauth2GrantType: '',
-                                        oauth2ClientId: '',
-                                        oauth2ClientSecret: '',
-                                        oauth2TokenUrl: '',
-                                        oauth2Scope: '',
-                                        oauth2AccessToken: '',
-                                    },
-                                    notes: 'Deletes a post by ID. Returns 200 with an empty body on success.',
-                                    tests: 'pm.test("Status is 200", () => pm.response.to.have.status(200));',
-                                } as any,
-                                {
-                                    id: httpAuthId,
-                                    name: 'GET — bearer auth example',
-                                    protocol: 'http',
-                                    method: 'GET',
-                                    url: 'https://httpbin.org/bearer',
-                                    params: [],
-                                    headers: [],
-                                    body: '',
-                                    bodyType: 'none',
-                                    formFields: [],
-                                    binaryFileName: '',
-                                    auth: {
-                                        type: 'bearer',
-                                        token: 'my-sample-token',
-                                        username: '',
-                                        password: '',
-                                        headerName: '',
-                                        headerValue: '',
-                                        oauth2GrantType: '',
-                                        oauth2ClientId: '',
-                                        oauth2ClientSecret: '',
-                                        oauth2TokenUrl: '',
-                                        oauth2Scope: '',
-                                        oauth2AccessToken: '',
-                                    },
-                                    notes: 'Demonstrates Bearer token auth. httpbin.org echoes back the Authorization header it received.',
-                                    tests: 'pm.test("Status is 200", () => pm.response.to.have.status(200));\npm.test("Token echoed back", () => {\n  const body = pm.response.json();\n  pm.expect(body.authenticated).to.be.true;\n});',
-                                } as any,
-                            ],
-                            folders: [],
-                        },
+                            id: httpGetId,
+                            name: 'GET — list users',
+                            protocol: 'http',
+                            method: 'GET',
+                            url: 'https://jsonplaceholder.typicode.com/users',
+                            params: [{ key: '_limit', value: '5', enabled: true }],
+                            headers: [{ key: 'Accept', value: 'application/json', enabled: true }],
+                            body: '',
+                            bodyType: 'none',
+                            formFields: [],
+                            binaryFileName: '',
+                            auth: {
+                                type: 'none',
+                                token: '',
+                                username: '',
+                                password: '',
+                                headerName: '',
+                                headerValue: '',
+                                oauth2GrantType: '',
+                                oauth2ClientId: '',
+                                oauth2ClientSecret: '',
+                                oauth2TokenUrl: '',
+                                oauth2Scope: '',
+                                oauth2AccessToken: '',
+                            },
+                            notes: 'Returns a list of users. Try the _limit param to control how many come back.',
+                            tests: 'pm.test("Status is 200", () => pm.response.to.have.status(200));\npm.test("Returns array", () => {\n  const body = pm.response.json();\n  pm.expect(Array.isArray(body)).to.be.true;\n});',
+                        } as any,
                         {
-                            id: crypto.randomUUID(),
-                            name: 'GraphQL',
-                            requests: [
+                            id: httpPostId,
+                            name: 'POST — create post',
+                            protocol: 'http',
+                            method: 'POST',
+                            url: 'https://jsonplaceholder.typicode.com/posts',
+                            params: [],
+                            headers: [
                                 {
-                                    id: gqlQueryId,
-                                    name: 'Query — countries list',
-                                    protocol: 'graphql',
-                                    method: 'POST',
-                                    url: 'https://countries.trevorblades.com/graphql',
-                                    params: [],
-                                    headers: [],
-                                    body: '',
-                                    bodyType: 'json',
-                                    formFields: [],
-                                    binaryFileName: '',
-                                    auth: {
-                                        type: 'none',
-                                        token: '',
-                                        username: '',
-                                        password: '',
-                                        headerName: '',
-                                        headerValue: '',
-                                        oauth2GrantType: '',
-                                        oauth2ClientId: '',
-                                        oauth2ClientSecret: '',
-                                        oauth2TokenUrl: '',
-                                        oauth2Scope: '',
-                                        oauth2AccessToken: '',
-                                    },
-                                    notes: 'Public Countries GraphQL API. No auth required. Try the Schema button to explore available fields.',
-                                    graphql: {
-                                        query: 'query GetCountries {\n  countries(filter: { continent: { eq: "EU" } }) {\n    code\n    name\n    capital\n    currency\n    languages {\n      name\n    }\n  }\n}',
-                                        variables: '{}',
-                                    },
-                                    tests: 'pm.test("Status is 200", () => pm.response.to.have.status(200));\npm.test("Has countries", () => {\n  const body = pm.response.json();\n  pm.expect(body.data.countries.length).to.be.above(0);\n});',
-                                } as any,
-                                {
-                                    id: gqlCountryId,
-                                    name: 'Query — country by code',
-                                    protocol: 'graphql',
-                                    method: 'POST',
-                                    url: 'https://countries.trevorblades.com/graphql',
-                                    params: [],
-                                    headers: [],
-                                    body: '',
-                                    bodyType: 'json',
-                                    formFields: [],
-                                    binaryFileName: '',
-                                    auth: {
-                                        type: 'none',
-                                        token: '',
-                                        username: '',
-                                        password: '',
-                                        headerName: '',
-                                        headerValue: '',
-                                        oauth2GrantType: '',
-                                        oauth2ClientId: '',
-                                        oauth2ClientSecret: '',
-                                        oauth2TokenUrl: '',
-                                        oauth2Scope: '',
-                                        oauth2AccessToken: '',
-                                    },
-                                    notes: 'Fetch a single country by its ISO code. Change the variable to any two-letter country code.',
-                                    graphql: {
-                                        query: 'query GetCountry($code: ID!) {\n  country(code: $code) {\n    name\n    native\n    capital\n    emoji\n    currency\n    languages {\n      code\n      name\n    }\n  }\n}',
-                                        variables: '{\n  "code": "UA"\n}',
-                                    },
-                                    tests: 'pm.test("Status is 200", () => pm.response.to.have.status(200));\npm.test("Country found", () => {\n  const body = pm.response.json();\n  pm.expect(body.data.country).to.not.be.null;\n});',
-                                } as any,
+                                    key: 'Content-Type',
+                                    value: 'application/json',
+                                    enabled: true,
+                                },
                             ],
-                            folders: [],
-                        },
+                            body: JSON.stringify(
+                                {
+                                    title: 'Hello from Simora',
+                                    body: 'This is a sample POST request',
+                                    userId: 1,
+                                },
+                                null,
+                                2
+                            ),
+                            bodyType: 'json',
+                            formFields: [],
+                            binaryFileName: '',
+                            auth: {
+                                type: 'none',
+                                token: '',
+                                username: '',
+                                password: '',
+                                headerName: '',
+                                headerValue: '',
+                                oauth2GrantType: '',
+                                oauth2ClientId: '',
+                                oauth2ClientSecret: '',
+                                oauth2TokenUrl: '',
+                                oauth2Scope: '',
+                                oauth2AccessToken: '',
+                            },
+                            notes: 'Creates a new post. JSONPlaceholder is a fake API — it returns 201 but nothing is persisted.',
+                            tests: 'pm.test("Status is 201", () => pm.response.to.have.status(201));\npm.test("Has id", () => {\n  const body = pm.response.json();\n  pm.expect(body).to.have.property("id");\n});',
+                        } as any,
                         {
-                            id: crypto.randomUUID(),
-                            name: 'WebSocket',
-                            requests: [
+                            id: httpPutId,
+                            name: 'PUT — update post',
+                            protocol: 'http',
+                            method: 'PUT',
+                            url: 'https://jsonplaceholder.typicode.com/posts/1',
+                            params: [],
+                            headers: [
                                 {
-                                    id: wsId,
-                                    name: 'Echo server',
-                                    protocol: 'websocket',
-                                    method: 'GET',
-                                    url: '',
-                                    params: [],
-                                    headers: [],
-                                    body: '',
-                                    bodyType: 'none',
-                                    formFields: [],
-                                    binaryFileName: '',
-                                    auth: {
-                                        type: 'none',
-                                        token: '',
-                                        username: '',
-                                        password: '',
-                                        headerName: '',
-                                        headerValue: '',
-                                        oauth2GrantType: '',
-                                        oauth2ClientId: '',
-                                        oauth2ClientSecret: '',
-                                        oauth2TokenUrl: '',
-                                        oauth2Scope: '',
-                                        oauth2AccessToken: '',
-                                    },
-                                    notes: 'WebSocket echo server — every message you send comes right back. Use wss://echo.websocket.org or run a local echo server.',
-                                    ws: {
-                                        url: 'wss://echo.websocket.org',
-                                        headers: [],
-                                        message: 'Hello from Simora!',
-                                        maxMessages: 10,
-                                        idleTimeout: 5,
-                                        tlsInsecure: false,
-                                    },
-                                } as any,
+                                    key: 'Content-Type',
+                                    value: 'application/json',
+                                    enabled: true,
+                                },
                             ],
-                            folders: [],
-                        },
+                            body: JSON.stringify(
+                                {
+                                    id: 1,
+                                    title: 'Updated title',
+                                    body: 'Updated body content',
+                                    userId: 1,
+                                },
+                                null,
+                                2
+                            ),
+                            bodyType: 'json',
+                            formFields: [],
+                            binaryFileName: '',
+                            auth: {
+                                type: 'none',
+                                token: '',
+                                username: '',
+                                password: '',
+                                headerName: '',
+                                headerValue: '',
+                                oauth2GrantType: '',
+                                oauth2ClientId: '',
+                                oauth2ClientSecret: '',
+                                oauth2TokenUrl: '',
+                                oauth2Scope: '',
+                                oauth2AccessToken: '',
+                            },
+                            notes: 'Full update of a post. Use PATCH to update only specific fields.',
+                            tests: 'pm.test("Status is 200", () => pm.response.to.have.status(200));',
+                        } as any,
                         {
-                            id: crypto.randomUUID(),
-                            name: 'gRPC',
-                            requests: [
-                                {
-                                    id: grpcId,
-                                    name: 'List services (reflection)',
-                                    protocol: 'grpc',
-                                    method: 'GET',
-                                    url: '',
-                                    params: [],
-                                    headers: [],
-                                    body: '',
-                                    bodyType: 'none',
-                                    formFields: [],
-                                    binaryFileName: '',
-                                    auth: {
-                                        type: 'none',
-                                        token: '',
-                                        username: '',
-                                        password: '',
-                                        headerName: '',
-                                        headerValue: '',
-                                        oauth2GrantType: '',
-                                        oauth2ClientId: '',
-                                        oauth2ClientSecret: '',
-                                        oauth2TokenUrl: '',
-                                        oauth2Scope: '',
-                                        oauth2AccessToken: '',
-                                    },
-                                    notes: 'Connect to a gRPC server with reflection enabled. Click "Load" to discover services and methods automatically. Try grpcb.in:9001 as a public test server.',
-                                    grpc: {
-                                        server: 'grpcb.in:9001',
-                                        service: '',
-                                        method: '',
-                                        message: '{}',
-                                        meta: [],
-                                        tls: true,
-                                    },
-                                } as any,
-                            ],
-                            folders: [],
-                        },
+                            id: httpDeleteId,
+                            name: 'DELETE — remove post',
+                            protocol: 'http',
+                            method: 'DELETE',
+                            url: 'https://jsonplaceholder.typicode.com/posts/1',
+                            params: [],
+                            headers: [],
+                            body: '',
+                            bodyType: 'none',
+                            formFields: [],
+                            binaryFileName: '',
+                            auth: {
+                                type: 'none',
+                                token: '',
+                                username: '',
+                                password: '',
+                                headerName: '',
+                                headerValue: '',
+                                oauth2GrantType: '',
+                                oauth2ClientId: '',
+                                oauth2ClientSecret: '',
+                                oauth2TokenUrl: '',
+                                oauth2Scope: '',
+                                oauth2AccessToken: '',
+                            },
+                            notes: 'Deletes a post by ID. Returns 200 with an empty body on success.',
+                            tests: 'pm.test("Status is 200", () => pm.response.to.have.status(200));',
+                        } as any,
+                        {
+                            id: httpAuthId,
+                            name: 'GET — bearer auth example',
+                            protocol: 'http',
+                            method: 'GET',
+                            url: 'https://httpbin.org/bearer',
+                            params: [],
+                            headers: [],
+                            body: '',
+                            bodyType: 'none',
+                            formFields: [],
+                            binaryFileName: '',
+                            auth: {
+                                type: 'bearer',
+                                token: 'my-sample-token',
+                                username: '',
+                                password: '',
+                                headerName: '',
+                                headerValue: '',
+                                oauth2GrantType: '',
+                                oauth2ClientId: '',
+                                oauth2ClientSecret: '',
+                                oauth2TokenUrl: '',
+                                oauth2Scope: '',
+                                oauth2AccessToken: '',
+                            },
+                            notes: 'Demonstrates Bearer token auth. httpbin.org echoes back the Authorization header it received.',
+                            tests: 'pm.test("Status is 200", () => pm.response.to.have.status(200));\npm.test("Token echoed back", () => {\n  const body = pm.response.json();\n  pm.expect(body.authenticated).to.be.true;\n});',
+                        } as any,
                     ],
-                } as any;
-
-                importCollection(org.id, proj.id, col);
-
-                setActiveOrg(org.id);
-                setActiveProject(proj.id);
-                setActiveCollection(colId);
-
-                // Open the first HTTP request in a tab so the user sees something immediately
-                const t3 = setTimeout(() => {
-                    if (!mountedRef.current) return;
-                    openTab(
+                    folders: [],
+                },
+                {
+                    id: crypto.randomUUID(),
+                    name: 'GraphQL',
+                    requests: [
                         {
-                            orgId: org.id,
-                            projectId: proj.id,
-                            collectionId: colId,
-                            requestId: httpGetId,
-                            folderId: col.folders[0].id,
-                        },
-                        col.folders[0].requests[0]
-                    );
-                    setLoading(false);
-                }, 0);
-                void t3;
-            }, 0);
-            void t2;
-        }, 0);
-        void t1;
+                            id: gqlQueryId,
+                            name: 'Query — countries list',
+                            protocol: 'graphql',
+                            method: 'POST',
+                            url: 'https://countries.trevorblades.com/graphql',
+                            params: [],
+                            headers: [],
+                            body: '',
+                            bodyType: 'json',
+                            formFields: [],
+                            binaryFileName: '',
+                            auth: {
+                                type: 'none',
+                                token: '',
+                                username: '',
+                                password: '',
+                                headerName: '',
+                                headerValue: '',
+                                oauth2GrantType: '',
+                                oauth2ClientId: '',
+                                oauth2ClientSecret: '',
+                                oauth2TokenUrl: '',
+                                oauth2Scope: '',
+                                oauth2AccessToken: '',
+                            },
+                            notes: 'Public Countries GraphQL API. No auth required. Try the Schema button to explore available fields.',
+                            graphql: {
+                                query: 'query GetCountries {\n  countries(filter: { continent: { eq: "EU" } }) {\n    code\n    name\n    capital\n    currency\n    languages {\n      name\n    }\n  }\n}',
+                                variables: '{}',
+                            },
+                            tests: 'pm.test("Status is 200", () => pm.response.to.have.status(200));\npm.test("Has countries", () => {\n  const body = pm.response.json();\n  pm.expect(body.data.countries.length).to.be.above(0);\n});',
+                        } as any,
+                        {
+                            id: gqlCountryId,
+                            name: 'Query — country by code',
+                            protocol: 'graphql',
+                            method: 'POST',
+                            url: 'https://countries.trevorblades.com/graphql',
+                            params: [],
+                            headers: [],
+                            body: '',
+                            bodyType: 'json',
+                            formFields: [],
+                            binaryFileName: '',
+                            auth: {
+                                type: 'none',
+                                token: '',
+                                username: '',
+                                password: '',
+                                headerName: '',
+                                headerValue: '',
+                                oauth2GrantType: '',
+                                oauth2ClientId: '',
+                                oauth2ClientSecret: '',
+                                oauth2TokenUrl: '',
+                                oauth2Scope: '',
+                                oauth2AccessToken: '',
+                            },
+                            notes: 'Fetch a single country by its ISO code. Change the variable to any two-letter country code.',
+                            graphql: {
+                                query: 'query GetCountry($code: ID!) {\n  country(code: $code) {\n    name\n    native\n    capital\n    emoji\n    currency\n    languages {\n      code\n      name\n    }\n  }\n}',
+                                variables: '{\n  "code": "UA"\n}',
+                            },
+                            tests: 'pm.test("Status is 200", () => pm.response.to.have.status(200));\npm.test("Country found", () => {\n  const body = pm.response.json();\n  pm.expect(body.data.country).to.not.be.null;\n});',
+                        } as any,
+                    ],
+                    folders: [],
+                },
+                {
+                    id: crypto.randomUUID(),
+                    name: 'WebSocket',
+                    requests: [
+                        {
+                            id: wsId,
+                            name: 'Echo server',
+                            protocol: 'websocket',
+                            method: 'GET',
+                            url: '',
+                            params: [],
+                            headers: [],
+                            body: '',
+                            bodyType: 'none',
+                            formFields: [],
+                            binaryFileName: '',
+                            auth: {
+                                type: 'none',
+                                token: '',
+                                username: '',
+                                password: '',
+                                headerName: '',
+                                headerValue: '',
+                                oauth2GrantType: '',
+                                oauth2ClientId: '',
+                                oauth2ClientSecret: '',
+                                oauth2TokenUrl: '',
+                                oauth2Scope: '',
+                                oauth2AccessToken: '',
+                            },
+                            notes: 'WebSocket echo server — every message you send comes right back. Use wss://echo.websocket.org or run a local echo server.',
+                            ws: {
+                                url: 'wss://echo.websocket.org',
+                                headers: [],
+                                message: 'Hello from Simora!',
+                                maxMessages: 10,
+                                idleTimeout: 5,
+                                tlsInsecure: false,
+                            },
+                        } as any,
+                    ],
+                    folders: [],
+                },
+                {
+                    id: crypto.randomUUID(),
+                    name: 'gRPC',
+                    requests: [
+                        {
+                            id: grpcId,
+                            name: 'List services (reflection)',
+                            protocol: 'grpc',
+                            method: 'GET',
+                            url: '',
+                            params: [],
+                            headers: [],
+                            body: '',
+                            bodyType: 'none',
+                            formFields: [],
+                            binaryFileName: '',
+                            auth: {
+                                type: 'none',
+                                token: '',
+                                username: '',
+                                password: '',
+                                headerName: '',
+                                headerValue: '',
+                                oauth2GrantType: '',
+                                oauth2ClientId: '',
+                                oauth2ClientSecret: '',
+                                oauth2TokenUrl: '',
+                                oauth2Scope: '',
+                                oauth2AccessToken: '',
+                            },
+                            notes: 'Connect to a gRPC server with reflection enabled. Click "Load" to discover services and methods automatically. Try grpcb.in:9001 as a public test server.',
+                            grpc: {
+                                server: 'grpcb.in:9001',
+                                service: '',
+                                method: '',
+                                message: '{}',
+                                meta: [],
+                                tls: true,
+                            },
+                        } as any,
+                    ],
+                    folders: [],
+                },
+            ],
+        } as any;
+
+        importCollection(org.id, proj.id, col);
+        setActiveOrg(org.id);
+        setActiveProject(proj.id);
+        setActiveCollection(colId);
+        openTab(
+            {
+                orgId: org.id,
+                projectId: proj.id,
+                collectionId: colId,
+                requestId: httpGetId,
+                folderId: col.folders[0].id,
+            },
+            col.folders[0].requests[0]
+        );
     }
 
     // If orgs already exist but no tab open, don't show welcome
@@ -618,7 +565,6 @@ export function WelcomeScreen() {
                 {/* ── CTA buttons ──────────────────────────────────────────── */}
                 <div className="flex items-center gap-3" style={{ marginBottom: 56 }}>
                     <button
-                        disabled={loading}
                         className="flex items-center gap-2 cursor-pointer rounded-[var(--r-md)] transition-all duration-150 hover:brightness-110 active:brightness-90 disabled:opacity-60"
                         style={{
                             height: 40,
@@ -636,7 +582,6 @@ export function WelcomeScreen() {
                     </button>
 
                     <button
-                        disabled={loading}
                         className="flex items-center gap-2 cursor-pointer rounded-[var(--r-md)] transition-all duration-150 hover:border-[var(--border-2)] hover:text-[var(--text-0)] disabled:opacity-60"
                         style={{
                             height: 40,
