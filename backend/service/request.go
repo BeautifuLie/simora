@@ -198,9 +198,21 @@ func isTextContentType(ct string) bool {
 func readResponse(resp *http.Response, start time.Time) (*domain.Response, error) {
 	const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+	limited := io.LimitReader(resp.Body, maxResponseSize)
+
+	respBody, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	// Detect whether the body was truncated by the size limit.
+	truncated := false
+
+	if int64(len(respBody)) == maxResponseSize {
+		var probe [1]byte
+
+		n, _ := resp.Body.Read(probe[:])
+		truncated = n > 0
 	}
 
 	ct := resp.Header.Get("Content-Type")
@@ -222,5 +234,6 @@ func readResponse(resp *http.Response, start time.Time) (*domain.Response, error
 		Headers:          resp.Header,
 		IsBinary:         isBinary,
 		ContentType:      ct,
+		Truncated:        truncated,
 	}, nil
 }

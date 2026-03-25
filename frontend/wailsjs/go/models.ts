@@ -1,22 +1,3 @@
-export namespace main {
-	export class UpdateInfo {
-		available: boolean;
-		latestVersion: string;
-		releaseURL: string;
-
-		static createFrom(source: any = {}) {
-			return new UpdateInfo(source);
-		}
-
-		constructor(source: any = {}) {
-			if ('string' === typeof source) source = JSON.parse(source);
-			this.available = source['available'];
-			this.latestVersion = source['latestVersion'];
-			this.releaseURL = source['releaseURL'];
-		}
-	}
-}
-
 export namespace domain {
 	
 	export class AuthConfig {
@@ -93,6 +74,46 @@ export namespace domain {
 		    return a;
 		}
 	}
+	export class WsConfig {
+	    url: string;
+	    headers: RequestHeader[];
+	    message: string;
+	    maxMessages: number;
+	    idleTimeout: number;
+	    tlsInsecure: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new WsConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.url = source["url"];
+	        this.headers = this.convertValues(source["headers"], RequestHeader);
+	        this.message = source["message"];
+	        this.maxMessages = source["maxMessages"];
+	        this.idleTimeout = source["idleTimeout"];
+	        this.tlsInsecure = source["tlsInsecure"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class SqsAttribute {
 	    key: string;
 	    value: string;
@@ -117,6 +138,9 @@ export namespace domain {
 	    region: string;
 	    delaySeconds: number;
 	    attributes: SqsAttribute[];
+	    accessKeyId: string;
+	    secretKey: string;
+	    sessionToken: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SqsConfig(source);
@@ -129,6 +153,9 @@ export namespace domain {
 	        this.region = source["region"];
 	        this.delaySeconds = source["delaySeconds"];
 	        this.attributes = this.convertValues(source["attributes"], SqsAttribute);
+	        this.accessKeyId = source["accessKeyId"];
+	        this.secretKey = source["secretKey"];
+	        this.sessionToken = source["sessionToken"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -158,6 +185,14 @@ export namespace domain {
 	    mode: string;
 	    group: string;
 	    offset: string;
+	    saslMechanism: string;
+	    saslUsername: string;
+	    saslPassword: string;
+	    tls: boolean;
+	    schemaRegistryUrl: string;
+	    schemaRegistrySubject: string;
+	    schemaRegistryUsername: string;
+	    schemaRegistryPassword: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new KafkaConfig(source);
@@ -173,6 +208,14 @@ export namespace domain {
 	        this.mode = source["mode"];
 	        this.group = source["group"];
 	        this.offset = source["offset"];
+	        this.saslMechanism = source["saslMechanism"];
+	        this.saslUsername = source["saslUsername"];
+	        this.saslPassword = source["saslPassword"];
+	        this.tls = source["tls"];
+	        this.schemaRegistryUrl = source["schemaRegistryUrl"];
+	        this.schemaRegistrySubject = source["schemaRegistrySubject"];
+	        this.schemaRegistryUsername = source["schemaRegistryUsername"];
+	        this.schemaRegistryPassword = source["schemaRegistryPassword"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -242,11 +285,12 @@ export namespace domain {
 	    headers: Record<string, string[]>;
 	    isBinary: boolean;
 	    contentType: string;
-
+	    truncated?: boolean;
+	
 	    static createFrom(source: any = {}) {
 	        return new Response(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.statusCode = source["statusCode"];
@@ -255,8 +299,9 @@ export namespace domain {
 	        this.size = source["size"];
 	        this.body = source["body"];
 	        this.headers = source["headers"];
-	        this.isBinary = source["isBinary"] ?? false;
-	        this.contentType = source["contentType"] ?? "";
+	        this.isBinary = source["isBinary"];
+	        this.contentType = source["contentType"];
+	        this.truncated = source["truncated"];
 	    }
 	}
 	export class FormField {
@@ -326,6 +371,7 @@ export namespace domain {
 	    grpc?: GrpcConfig;
 	    kafka?: KafkaConfig;
 	    sqs?: SqsConfig;
+	    ws?: WsConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new Request(source);
@@ -351,6 +397,7 @@ export namespace domain {
 	        this.grpc = this.convertValues(source["grpc"], GrpcConfig);
 	        this.kafka = this.convertValues(source["kafka"], KafkaConfig);
 	        this.sqs = this.convertValues(source["sqs"], SqsConfig);
+	        this.ws = this.convertValues(source["ws"], WsConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -496,6 +543,7 @@ export namespace domain {
 	    fontSize: string;
 	    theme: string;
 	    accentColor?: string;
+	    crashReporterEnabled?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -511,9 +559,32 @@ export namespace domain {
 	        this.fontSize = source["fontSize"];
 	        this.theme = source["theme"];
 	        this.accentColor = source["accentColor"];
+	        this.crashReporterEnabled = source["crashReporterEnabled"];
 	    }
 	}
 	
+	
+
+}
+
+export namespace main {
+	
+	export class UpdateInfo {
+	    available: boolean;
+	    latestVersion: string;
+	    releaseURL: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.latestVersion = source["latestVersion"];
+	        this.releaseURL = source["releaseURL"];
+	    }
+	}
 
 }
 
@@ -589,11 +660,11 @@ export namespace transport {
 	    Subject: string;
 	    Username: string;
 	    Password: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new SchemaRegistryConfig(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.URL = source["URL"];
@@ -601,24 +672,6 @@ export namespace transport {
 	        this.Username = source["Username"];
 	        this.Password = source["Password"];
 	    }
-
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class KafkaConsumeRequest {
 	    Bootstrap: string;
@@ -628,11 +681,11 @@ export namespace transport {
 	    MaxMessages: number;
 	    Auth: KafkaAuth;
 	    SchemaRegistry: SchemaRegistryConfig;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new KafkaConsumeRequest(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.Bootstrap = source["Bootstrap"];
@@ -673,11 +726,11 @@ export namespace transport {
 	    ProtoSchema: string;
 	    ProtoMessageType: string;
 	    SchemaRegistry: SchemaRegistryConfig;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new KafkaProduceRequest(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.Bootstrap = source["Bootstrap"];
@@ -710,6 +763,7 @@ export namespace transport {
 		    return a;
 		}
 	}
+	
 	export class SqsAuth {
 	    AccessKeyID: string;
 	    SecretAccessKey: string;
@@ -824,28 +878,28 @@ export namespace transport {
 		    return a;
 		}
 	}
-
-export class WsConnectRequest {
-	URL: string;
-	Headers: Record<string, string>;
-	Message: string;
-	MaxMessages: number;
-	IdleTimeout: number;
-	TLSInsecure: boolean;
-
-	static createFrom(source: any = {}) {
-		return new WsConnectRequest(source);
+	export class WsConnectRequest {
+	    URL: string;
+	    Headers: Record<string, string>;
+	    Message: string;
+	    MaxMessages: number;
+	    IdleTimeout: number;
+	    TLSInsecure: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new WsConnectRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.URL = source["URL"];
+	        this.Headers = source["Headers"];
+	        this.Message = source["Message"];
+	        this.MaxMessages = source["MaxMessages"];
+	        this.IdleTimeout = source["IdleTimeout"];
+	        this.TLSInsecure = source["TLSInsecure"];
+	    }
 	}
 
-	constructor(source: any = {}) {
-		if ('string' === typeof source) source = JSON.parse(source);
-		this.URL = source["URL"];
-		this.Headers = source["Headers"];
-		this.Message = source["Message"];
-		this.MaxMessages = source["MaxMessages"];
-		this.IdleTimeout = source["IdleTimeout"];
-		this.TLSInsecure = source["TLSInsecure"];
-	}
 }
 
-}

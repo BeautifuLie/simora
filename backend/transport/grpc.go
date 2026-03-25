@@ -122,7 +122,10 @@ func buildFileDescriptor(fds []*descriptorpb.FileDescriptorProto) (protoreflect.
 	}
 
 	if len(fds) > maxReflectFileDescs {
-		fds = fds[:maxReflectFileDescs]
+		return nil, fmt.Errorf(
+			"server returned %d file descriptors; only %d are supported — method resolution may be incomplete",
+			len(fds), maxReflectFileDescs,
+		)
 	}
 
 	reg, err := protodesc.NewFiles(&descriptorpb.FileDescriptorSet{File: fds})

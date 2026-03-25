@@ -9,4 +9,5 @@ type Response struct {
 	Headers          map[string][]string `json:"headers"`
 	IsBinary         bool                `json:"isBinary"`
 	ContentType      string              `json:"contentType"`
+	Truncated        bool                `json:"truncated,omitempty"`
 }

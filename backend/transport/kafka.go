@@ -3,7 +3,6 @@ package transport
 import (
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -307,7 +306,7 @@ func DecodeAvroMessages(ctx context.Context, msgs []KafkaMsg, cfg SchemaRegistry
 		if !ok {
 			fetched, err := FetchSchemaByID(ctx, cfg.URL, id, cfg.Username, cfg.Password)
 			if err != nil {
-				msgs[i].Value = base64.StdEncoding.EncodeToString(raw)
+				msgs[i].Value = fmt.Sprintf("[avro decode error: schema %d: %v]", id, err)
 				continue
 			}
 
@@ -317,7 +316,7 @@ func DecodeAvroMessages(ctx context.Context, msgs []KafkaMsg, cfg SchemaRegistry
 
 		decoded, err := AvroDeserialise(schemaJSON, raw[1+kafkaSchemaIDLen:])
 		if err != nil {
-			msgs[i].Value = base64.StdEncoding.EncodeToString(raw)
+			msgs[i].Value = fmt.Sprintf("[avro decode error: deserialize schema %d: %v]", id, err)
 			continue
 		}
 
@@ -528,6 +527,9 @@ func kafkaConsumeStateless(ctx context.Context, req KafkaConsumeRequest, maxMess
 		"topic":    req.Topic,
 		"count":    len(messages),
 		"messages": messages,
+	}
+	if firstErr != nil {
+		result["warning"] = fmt.Sprintf("partial scan: %v", firstErr)
 	}
 
 	b, err := json.MarshalIndent(result, "", "  ")
