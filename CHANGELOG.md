@@ -7,46 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.0] - 2026-03-25
+
 ### Added
+
 - `VarInput` and `VarTextarea` components: inline `{{variable}}` token highlighting (green = known, red = unknown) and autocomplete dropdown on `{{`; wired into URL bar, header values, body editor, Kafka bootstrap/topic/key/message, and SQS queue URL/message body
 - Response truncation amber banner shown above the body when output exceeds 200 KB
 - Binary HTTP response handling: non-text Content-Types are base64-encoded in the backend and displayed as a binary viewer with content-type badge, file size, and "Save to file" button instead of attempted syntax highlighting
 - SQS receive now includes `messageAttributes` (user-defined) alongside system `attributes` in the JSON result
-
-### Fixed
-- HTTP responses with binary content (images, octet-stream, etc.) no longer corrupt the body by forcing UTF-8 string conversion; the backend detects the Content-Type and base64-encodes binary payloads
-- gzip/brotli decompression: confirmed the Go HTTP client does not have `DisableCompression` set, so responses are auto-decompressed by the standard library
-
-### Added
-- Integration tests for transport layer (gRPC, Kafka, SQS) with docker-compose; new Makefile targets: `test.backend.unit`, `test.backend.integration`, `test.backend.all`
+- Integration tests for transport layer (gRPC, Kafka, SQS) with docker-compose; new Makefile targets: `backend.test.unit`, `backend.test.integration`, `backend.test.all`
 - `PasswordInput` component with eye-icon toggle for all sensitive credential fields (bearer token, basic auth password, API key value, Kafka SASL password, Schema Registry password, SQS secret access key, session token)
 - Inline security warnings: SASL PLAIN without TLS warns credentials are sent unencrypted; Schema Registry over `http://` with credentials warns about unencrypted transport
 - Persistent "SSL verification off" badge in the HTTP URL bar when SSL certificate validation is disabled in Settings
 - Auto-update toggle in Settings → About: "Check for updates on startup" (default on); disabling it skips the GitHub releases check entirely
-
-### Fixed
-- `SaveFile` now writes exported files with permission `0o600` instead of `0o644`, restricting read access to the owner only
-- Crash reports are sanitised before being written to disk: `Authorization: Bearer` tokens, password fields, and AWS-style key strings are replaced with `[REDACTED]`
-- `KafkaConfig` and `SqsConfig` domain structs now include all auth fields (`saslMechanism`, `saslUsername`, `saslPassword`, `tls`, schema-registry fields for Kafka; `accessKeyId`, `secretKey`, `sessionToken` for SQS) so credentials are persisted correctly
-
-### Added
-
 - Opt-in crash reporter: enable in Settings → Diagnostics to capture uncaught JS errors as local log files (`~/.config/simora/crashes/`); a dismissible banner appears on the next launch when a crash log is found
 - Auto-update check: 3 seconds after launch the app silently queries the GitHub releases API; if a newer version is available a green "↑ vX.Y.Z" link appears in the status bar
 - Resizable response panel now persists its split position across sessions (`autoSaveId`); added explicit `maxSize={72}` constraint so neither panel can be collapsed below 28%
 - WebSocket protocol support: connect to `ws://` / `wss://` endpoints, send an optional initial message, collect messages (configurable limit and idle timeout), and view results in the response panel
 - gRPC server-streaming RPCs are now supported: all response messages are collected (up to 100) and returned as a JSON array; the status bar shows "N messages" instead of "200 OK"
 - Confluent Schema Registry integration for Kafka: produce messages as Avro (JSON → Avro with wire-format header), auto-decode Avro messages on consume when a registry URL is configured
-
-### Fixed
-
-- Import parser now returns a specific hint for OpenAPI/Swagger, Postman v1, and HAR formats instead of a generic "unrecognised format" message
-- Switching or closing a tab now syncs the sidebar org/project selection to match the newly active tab, preventing stale navigation after org or project deletion
-- Deleting an org or project with multiple tabs open now keeps the sidebar navigation consistent with the new active tab
-- gRPC server reflection now caps the number of returned services and methods (200 each) to prevent runaway memory growth from adversarial servers
-
-### Added
-
 - `Cmd/Ctrl+D` keyboard shortcut to duplicate the active tab
 - `Cmd/Ctrl+F` keyboard shortcut to open search in the response body panel
 - Export collection as Insomnia v4 JSON (in addition to existing Postman v2.1 export)
@@ -63,6 +42,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Request chaining: use `{{chain:RequestName.field}}` in any request field to reference the last response of a named request
 - gRPC Schema tab: "Fetch Descriptor" button shows service methods with input/output message fields via server reflection
 - Recent requests history: last 20 sent requests shown in Command Palette (⌘K) when search is empty
+
+### Fixed
+
+- HTTP responses with binary content (images, octet-stream, etc.) no longer corrupt the body by forcing UTF-8 string conversion; the backend detects the Content-Type and base64-encodes binary payloads
+- gzip/brotli decompression: confirmed the Go HTTP client does not have `DisableCompression` set, so responses are auto-decompressed by the standard library
+- `SaveFile` now writes exported files with permission `0o600` instead of `0o644`, restricting read access to the owner only
+- Crash reports are sanitised before being written to disk: `Authorization: Bearer` tokens, password fields, and AWS-style key strings are replaced with `[REDACTED]`
+- `KafkaConfig` and `SqsConfig` domain structs now include all auth fields (`saslMechanism`, `saslUsername`, `saslPassword`, `tls`, schema-registry fields for Kafka; `accessKeyId`, `secretKey`, `sessionToken` for SQS) so credentials are persisted correctly
+- Import parser now returns a specific hint for OpenAPI/Swagger, Postman v1, and HAR formats instead of a generic "unrecognised format" message
+- Switching or closing a tab now syncs the sidebar org/project selection to match the newly active tab, preventing stale navigation after org or project deletion
+- Deleting an org or project with multiple tabs open now keeps the sidebar navigation consistent with the new active tab
+- gRPC server reflection now caps the number of returned services and methods (200 each) to prevent runaway memory growth from adversarial servers
 
 ## [v0.1.1] - 2026-03-24
 
