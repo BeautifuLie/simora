@@ -3,6 +3,7 @@ import { Plus, X, Loader2, Wifi, WifiOff, Copy, Download, Send as SendIcon } fro
 import { cn } from '@/lib/utils';
 import { useAppStore, selectEditing, selectActiveTab } from '@/store/app';
 import type { WsMessage } from '@/store/app';
+import { SaveFile } from '../../../wailsjs/go/main/App';
 import { ProtocolBadge } from './ProtocolBadge';
 import { RequestNameBar } from './RequestNameBar';
 import { VarInput } from '@/components/ui/VarInput';
@@ -381,14 +382,9 @@ function ConnectedView() {
 
     const handleDownload = () => {
         const json = JSON.stringify(wsMessages, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const filename = `ws-messages-${Date.now()}.json`;
 
-        a.href = url;
-        a.download = `ws-messages-${Date.now()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        SaveFile(json, filename);
     };
 
     return (
