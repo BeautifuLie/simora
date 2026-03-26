@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Settings → About now shows the config directory path (`~/.config/simora`) with an "Open" button that reveals it in the system file manager
 - QA environment: `docker-compose.qa.yml` with httpbin (HTTP), grpc-echo (gRPC), Kafka (no-auth), LocalStack SQS, and WebSocket echo server; `make qa.up` / `qa.down` / `qa.status` targets; ready-to-import collections per protocol in `qa/`
+- `make qa.seed` injects a "QA" workspace with all five protocol collections directly into `~/.config/simora/config.json`; `make qa.unseed` removes it cleanly by its fixed ID without touching other data
 
 ### Fixed
 
