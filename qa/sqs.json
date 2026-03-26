@@ -123,7 +123,9 @@
             "attributes": [],
             "accessKeyId": "{{sqs_key}}",
             "secretAccessKey": "{{sqs_secret}}",
-            "sessionToken": ""
+            "sessionToken": "",
+            "messageGroupId": "qa-group",
+            "messageDeduplicationId": ""
           }
         },
         {
