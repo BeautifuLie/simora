@@ -2,6 +2,7 @@ import React from 'react';
 import { Send, Inbox, Plus, X, Loader2, ChevronDown } from 'lucide-react';
 import { cn, shortcut } from '@/lib/utils';
 import { useAppStore, selectEditing } from '@/store/app';
+import { resolveVars } from '@/store/types';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { ProtocolBadge } from './ProtocolBadge';
 import { RequestNameBar } from './RequestNameBar';
@@ -46,6 +47,7 @@ function useVarProps() {
         return [];
     }, [path, organizations]);
     return {
+        activeEnv,
         envVars: activeEnv?.variables ?? [],
         collectionVars,
     };
@@ -154,10 +156,11 @@ function RegionSelector() {
 function SqsMessageTab() {
     const editing = useAppStore(selectEditing);
     const patchSqs = useAppStore(s => s.patchSqs);
-    const { envVars, collectionVars } = useVarProps();
+    const { activeEnv, envVars, collectionVars } = useVarProps();
     if (!editing) return null;
 
     const isReceive = editing.method === 'GET';
+    const resolvedQueueUrl = resolveVars(editing.sqs.queueUrl, activeEnv, collectionVars);
     const numInputStyle = {
         height: 'var(--input-height)',
         padding: '0 10px',
@@ -260,8 +263,8 @@ function SqsMessageTab() {
                 </div>
             </div>
 
-            {/* FIFO fields — only shown when the queue URL ends with .fifo */}
-            {editing.sqs.queueUrl.toLowerCase().endsWith('.fifo') && (
+            {/* FIFO fields — only shown when the (resolved) queue URL ends with .fifo */}
+            {resolvedQueueUrl.toLowerCase().endsWith('.fifo') && (
                 <div
                     style={{
                         display: 'flex',
