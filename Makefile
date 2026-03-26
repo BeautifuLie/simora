@@ -87,6 +87,26 @@ test.backend.all: ## run all backend tests (unit + integration, docker managed)
 	docker compose down -v ; \
 	docker compose rm -s -f -v
 
+# === QA environment ===
+
+qa.up: ## start QA services (httpbin, grpc-echo, kafka, localstack, ws-echo)
+	docker compose -f docker-compose.qa.yml up -d
+	@echo "waiting for Kafka..."
+	@timeout 60s bash -c "until docker compose -f docker-compose.qa.yml exec -T kafka kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1; do sleep 2; done"
+	@echo "QA services are up."
+	@echo "  HTTP:      http://localhost:8080"
+	@echo "  gRPC:      localhost:50051"
+	@echo "  Kafka:     localhost:9092"
+	@echo "  SQS:       http://localhost:4566"
+	@echo "  WebSocket: ws://localhost:8765"
+
+qa.down: ## stop and remove QA services
+	docker compose -f docker-compose.qa.yml down -v
+	docker compose -f docker-compose.qa.yml rm -s -f -v
+
+qa.status: ## show QA service status
+	docker compose -f docker-compose.qa.yml ps
+
 # === Project ===
 
 dev:
@@ -130,6 +150,11 @@ help:
 	@echo "  test.backend.integration.run   Run integration tests (docker must be up)"
 	@echo "  test.backend.integration.teardown Stop docker services"
 	@echo "  test.backend.all               All backend tests (unit + integration)"
+	@echo ""
+	@echo "QA environment:"
+	@echo "  qa.up                          Start QA docker services"
+	@echo "  qa.down                        Stop and remove QA services"
+	@echo "  qa.status                      Show QA service status"
 	@echo ""
 	@echo "Project:"
 	@echo "  dev                            Run in dev mode"

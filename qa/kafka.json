@@ -1,0 +1,188 @@
+{
+  "id": "qa-kafka-collection",
+  "name": "QA — Kafka",
+  "variables": [
+    { "key": "kafka_bootstrap", "value": "localhost:9092", "enabled": true }
+  ],
+  "requests": [],
+  "folders": [
+    {
+      "id": "qa-kafka-produce",
+      "name": "Produce",
+      "folders": [],
+      "requests": [
+        {
+          "id": "qa-kafka-produce-simple",
+          "name": "Produce → test-topic (plain text)",
+          "protocol": "kafka",
+          "method": "POST",
+          "url": "{{kafka_bootstrap}}",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Sends a plain text message to test-topic. No SASL — the QA broker runs without auth.",
+          "kafka": {
+            "bootstrap": "{{kafka_bootstrap}}",
+            "topic": "test-topic",
+            "key": "qa-key-1",
+            "message": "Hello from Simora QA",
+            "headers": [
+              { "key": "source", "value": "simora-qa", "enabled": true }
+            ],
+            "mode": "produce",
+            "group": "",
+            "offset": "latest",
+            "saslMechanism": "none",
+            "saslUsername": "",
+            "saslPassword": "",
+            "tls": false,
+            "schemaRegistryUrl": "",
+            "schemaRegistrySubject": "",
+            "schemaRegistryUsername": "",
+            "schemaRegistryPassword": ""
+          }
+        },
+        {
+          "id": "qa-kafka-produce-json",
+          "name": "Produce → orders (JSON)",
+          "protocol": "kafka",
+          "method": "POST",
+          "url": "{{kafka_bootstrap}}",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Sends a JSON order event. Produce a few messages, then consume to see them in order.",
+          "kafka": {
+            "bootstrap": "{{kafka_bootstrap}}",
+            "topic": "orders",
+            "key": "order-42",
+            "message": "{\n  \"orderId\": 42,\n  \"item\": \"widget\",\n  \"qty\": 3,\n  \"status\": \"pending\"\n}",
+            "headers": [
+              { "key": "content-type", "value": "application/json", "enabled": true }
+            ],
+            "mode": "produce",
+            "group": "",
+            "offset": "latest",
+            "saslMechanism": "none",
+            "saslUsername": "",
+            "saslPassword": "",
+            "tls": false,
+            "schemaRegistryUrl": "",
+            "schemaRegistrySubject": "",
+            "schemaRegistryUsername": "",
+            "schemaRegistryPassword": ""
+          }
+        },
+        {
+          "id": "qa-kafka-produce-events",
+          "name": "Produce → events (no key)",
+          "protocol": "kafka",
+          "method": "POST",
+          "url": "{{kafka_bootstrap}}",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Produce without a partition key — message lands on a random partition. Good for verifying the partition field in the response.",
+          "kafka": {
+            "bootstrap": "{{kafka_bootstrap}}",
+            "topic": "events",
+            "key": "",
+            "message": "{\n  \"event\": \"user.signup\",\n  \"userId\": \"u-999\"\n}",
+            "headers": [],
+            "mode": "produce",
+            "group": "",
+            "offset": "latest",
+            "saslMechanism": "none",
+            "saslUsername": "",
+            "saslPassword": "",
+            "tls": false,
+            "schemaRegistryUrl": "",
+            "schemaRegistrySubject": "",
+            "schemaRegistryUsername": "",
+            "schemaRegistryPassword": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "qa-kafka-consume",
+      "name": "Consume",
+      "folders": [],
+      "requests": [
+        {
+          "id": "qa-kafka-consume-latest",
+          "name": "Consume ← test-topic (latest)",
+          "protocol": "kafka",
+          "method": "GET",
+          "url": "{{kafka_bootstrap}}",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Waits for new messages on test-topic. Produce a message first, then click Consume to see it arrive.",
+          "kafka": {
+            "bootstrap": "{{kafka_bootstrap}}",
+            "topic": "test-topic",
+            "key": "",
+            "message": "",
+            "headers": [],
+            "mode": "consume",
+            "group": "simora-qa-group",
+            "offset": "latest",
+            "saslMechanism": "none",
+            "saslUsername": "",
+            "saslPassword": "",
+            "tls": false,
+            "schemaRegistryUrl": "",
+            "schemaRegistrySubject": "",
+            "schemaRegistryUsername": "",
+            "schemaRegistryPassword": ""
+          }
+        },
+        {
+          "id": "qa-kafka-consume-earliest",
+          "name": "Consume ← orders (earliest, all history)",
+          "protocol": "kafka",
+          "method": "GET",
+          "url": "{{kafka_bootstrap}}",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Reads from the very beginning of the orders topic. Produce a few orders first, then consume with offset=earliest to replay all of them.",
+          "kafka": {
+            "bootstrap": "{{kafka_bootstrap}}",
+            "topic": "orders",
+            "key": "",
+            "message": "",
+            "headers": [],
+            "mode": "consume",
+            "group": "simora-qa-replay",
+            "offset": "earliest",
+            "saslMechanism": "none",
+            "saslUsername": "",
+            "saslPassword": "",
+            "tls": false,
+            "schemaRegistryUrl": "",
+            "schemaRegistrySubject": "",
+            "schemaRegistryUsername": "",
+            "schemaRegistryPassword": ""
+          }
+        }
+      ]
+    }
+  ]
+}

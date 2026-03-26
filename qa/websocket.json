@@ -1,0 +1,114 @@
+{
+  "id": "qa-ws-collection",
+  "name": "QA — WebSocket",
+  "variables": [
+    { "key": "ws_echo_url", "value": "ws://localhost:8765", "enabled": true }
+  ],
+  "requests": [],
+  "folders": [
+    {
+      "id": "qa-ws-local",
+      "name": "Local echo server",
+      "folders": [],
+      "requests": [
+        {
+          "id": "qa-ws-echo-text",
+          "name": "Echo — plain text",
+          "protocol": "websocket",
+          "method": "GET",
+          "url": "{{ws_echo_url}}",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Connects to the local echo server. Every message sent is echoed back immediately. Verify the response message matches what was sent.",
+          "ws": {
+            "url": "{{ws_echo_url}}",
+            "headers": [],
+            "message": "Hello from Simora QA!",
+            "maxMessages": 5,
+            "idleTimeout": 10,
+            "tlsInsecure": false
+          }
+        },
+        {
+          "id": "qa-ws-echo-json",
+          "name": "Echo — JSON payload",
+          "protocol": "websocket",
+          "method": "GET",
+          "url": "{{ws_echo_url}}",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Send a JSON payload; the echo server sends back the raw string. Paste the response into a JSON formatter to verify it round-tripped correctly.",
+          "ws": {
+            "url": "{{ws_echo_url}}",
+            "headers": [],
+            "message": "{\n  \"type\": \"ping\",\n  \"id\": 1,\n  \"payload\": \"qa-test\"\n}",
+            "maxMessages": 5,
+            "idleTimeout": 10,
+            "tlsInsecure": false
+          }
+        },
+        {
+          "id": "qa-ws-echo-headers",
+          "name": "Echo — with upgrade headers",
+          "protocol": "websocket",
+          "method": "GET",
+          "url": "{{ws_echo_url}}",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Attaches custom headers to the WebSocket upgrade request. Verify the connection succeeds (echo server accepts any upgrade headers).",
+          "ws": {
+            "url": "{{ws_echo_url}}",
+            "headers": [
+              { "key": "X-QA-Client", "value": "simora", "enabled": true }
+            ],
+            "message": "headers test",
+            "maxMessages": 3,
+            "idleTimeout": 10,
+            "tlsInsecure": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "qa-ws-public",
+      "name": "Public echo server",
+      "folders": [],
+      "requests": [
+        {
+          "id": "qa-ws-public-echo",
+          "name": "Echo — wss://echo.websocket.org",
+          "protocol": "websocket",
+          "method": "GET",
+          "url": "wss://echo.websocket.org",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Public echo server over TLS. Useful when Docker isn't running. Note: the public server may have uptime issues.",
+          "ws": {
+            "url": "wss://echo.websocket.org",
+            "headers": [],
+            "message": "Hello from Simora QA (public)",
+            "maxMessages": 5,
+            "idleTimeout": 15,
+            "tlsInsecure": false
+          }
+        }
+      ]
+    }
+  ]
+}
