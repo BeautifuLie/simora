@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Plus, X, Loader2, Wifi, WifiOff } from 'lucide-react';
+import { Plus, X, Loader2, Wifi, WifiOff, Copy, Download, Send as SendIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore, selectEditing, selectActiveTab } from '@/store/app';
 import type { WsMessage } from '@/store/app';
@@ -346,6 +346,8 @@ function ConnectedView() {
     const wsSend = useAppStore(s => s.wsSend);
 
     const [draft, setDraft] = useState('');
+    const [showSend, setShowSend] = useState(true);
+    const [copied, setCopied] = useState(false);
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -366,6 +368,27 @@ function ConnectedView() {
             e.preventDefault();
             handleSend();
         }
+    };
+
+    const handleCopyJson = () => {
+        const json = JSON.stringify(wsMessages, null, 2);
+
+        navigator.clipboard.writeText(json).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        });
+    };
+
+    const handleDownload = () => {
+        const json = JSON.stringify(wsMessages, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+
+        a.href = url;
+        a.download = `ws-messages-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
     };
 
     return (
@@ -416,6 +439,55 @@ function ConnectedView() {
                               : 'Disconnected'}
                     </span>
                 </div>
+
+                {/* Export buttons — only when there are messages */}
+                {wsMessages.length > 0 && (
+                    <>
+                        <button
+                            onClick={handleCopyJson}
+                            title="Copy messages as JSON"
+                            className="flex items-center gap-1 shrink-0 cursor-pointer select-none rounded transition-colors hover:bg-[var(--bg-3)]"
+                            style={{
+                                height: 'var(--input-height)',
+                                padding: '0 8px',
+                                fontSize: 'var(--text-sm)',
+                                color: copied ? WS_COLOR : 'var(--text-2)',
+                            }}
+                        >
+                            <Copy style={{ width: 13, height: 13 }} />
+                            {copied ? 'Copied!' : 'Copy JSON'}
+                        </button>
+                        <button
+                            onClick={handleDownload}
+                            title="Download messages as JSON file"
+                            className="flex items-center gap-1 shrink-0 cursor-pointer select-none rounded transition-colors hover:bg-[var(--bg-3)]"
+                            style={{
+                                height: 'var(--input-height)',
+                                padding: '0 8px',
+                                fontSize: 'var(--text-sm)',
+                                color: 'var(--text-2)',
+                            }}
+                        >
+                            <Download style={{ width: 13, height: 13 }} />
+                            Download
+                        </button>
+                    </>
+                )}
+
+                {/* Toggle send bar */}
+                <button
+                    onClick={() => setShowSend(v => !v)}
+                    title={showSend ? 'Hide send panel' : 'Show send panel'}
+                    className="flex items-center gap-1 shrink-0 cursor-pointer select-none rounded transition-colors hover:bg-[var(--bg-3)]"
+                    style={{
+                        height: 'var(--input-height)',
+                        padding: '0 8px',
+                        fontSize: 'var(--text-sm)',
+                        color: showSend ? 'var(--text-1)' : 'var(--text-2)',
+                    }}
+                >
+                    <SendIcon style={{ width: 13, height: 13 }} />
+                </button>
 
                 {wsState === 'disconnected' ? (
                     <button
@@ -473,55 +545,57 @@ function ConnectedView() {
             </div>
 
             {/* Send bar */}
-            <div
-                className="flex items-end gap-2 shrink-0"
-                style={{
-                    padding: '8px 12px',
-                    borderTop: '1px solid var(--border-0)',
-                }}
-            >
-                <textarea
-                    value={draft}
-                    onChange={e => setDraft(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={
-                        wsState === 'connected'
-                            ? 'Type a message… (Enter to send, Shift+Enter for newline)'
-                            : 'Disconnected'
-                    }
-                    disabled={wsState !== 'connected'}
-                    rows={1}
-                    className="flex-1 resize-none bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] transition-colors focus:border-[var(--border-focus)] disabled:opacity-50"
+            {showSend && (
+                <div
+                    className="flex items-end gap-2 shrink-0"
                     style={{
-                        padding: '6px 10px',
-                        fontSize: 'var(--text-base)',
-                        fontFamily: "'JetBrains Mono Variable', monospace",
-                        color: 'var(--text-0)',
-                        border: '1px solid var(--border-1)',
-                        lineHeight: 1.5,
-                        maxHeight: 120,
-                        overflow: 'auto',
+                        padding: '8px 12px',
+                        borderTop: '1px solid var(--border-0)',
                     }}
-                    spellCheck={false}
-                />
-                <button
-                    className="flex items-center gap-1.5 rounded-[var(--r-sm)] shrink-0 cursor-pointer select-none transition-all duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-50"
-                    style={{
-                        height: 'var(--input-height)',
-                        padding: '0 14px',
-                        background: WS_COLOR,
-                        color: '#0d1117',
-                        fontSize: 'var(--text-base)',
-                        fontWeight: 600,
-                        flexShrink: 0,
-                    }}
-                    onClick={handleSend}
-                    disabled={wsState !== 'connected' || !draft.trim()}
-                    title="Send (Enter)"
                 >
-                    Send
-                </button>
-            </div>
+                    <textarea
+                        value={draft}
+                        onChange={e => setDraft(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder={
+                            wsState === 'connected'
+                                ? 'Type a message… (Enter to send, Shift+Enter for newline)'
+                                : 'Disconnected'
+                        }
+                        disabled={wsState !== 'connected'}
+                        rows={1}
+                        className="flex-1 resize-none bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] transition-colors focus:border-[var(--border-focus)] disabled:opacity-50"
+                        style={{
+                            padding: '6px 10px',
+                            fontSize: 'var(--text-base)',
+                            fontFamily: "'JetBrains Mono Variable', monospace",
+                            color: 'var(--text-0)',
+                            border: '1px solid var(--border-1)',
+                            lineHeight: 1.5,
+                            maxHeight: 120,
+                            overflow: 'auto',
+                        }}
+                        spellCheck={false}
+                    />
+                    <button
+                        className="flex items-center gap-1.5 rounded-[var(--r-sm)] shrink-0 cursor-pointer select-none transition-all duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-50"
+                        style={{
+                            height: 'var(--input-height)',
+                            padding: '0 14px',
+                            background: WS_COLOR,
+                            color: '#0d1117',
+                            fontSize: 'var(--text-base)',
+                            fontWeight: 600,
+                            flexShrink: 0,
+                        }}
+                        onClick={handleSend}
+                        disabled={wsState !== 'connected' || !draft.trim()}
+                        title="Send (Enter)"
+                    >
+                        Send
+                    </button>
+                </div>
+            )}
         </>
     );
 }

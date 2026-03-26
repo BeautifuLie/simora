@@ -13,7 +13,7 @@ import { WelcomeScreen } from '@/components/layout/WelcomeScreen';
 import { RequestPanel } from '@/components/request/RequestPanel';
 import { ResponsePanel } from '@/components/response/ResponsePanel';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import { useAppStore, selectActivePath, selectEditing } from '@/store/app';
+import { useAppStore, selectActivePath, selectEditing, selectActiveTab } from '@/store/app';
 import { KeyboardShortcutsModal } from '@/components/layout/KeyboardShortcutsModal';
 import {
     GetVersion,
@@ -257,6 +257,11 @@ function StatusBar() {
 export default function App() {
     const hasActiveTab = useAppStore(s => s.activeTabId !== null);
     const hasOrgs = useAppStore(s => s.organizations.length > 0);
+    const editing = useAppStore(selectEditing);
+    const wsState = useAppStore(s => selectActiveTab(s)?.wsState ?? 'idle');
+    const isWsActive =
+        editing?.protocol === 'websocket' &&
+        (wsState === 'connected' || wsState === 'connecting' || wsState === 'disconnected');
     const settings = useAppStore(s => s.settings);
     const sendRequest = useAppStore(s => s.sendRequest);
     const saveRequest = useAppStore(s => s.saveRequest);
@@ -376,23 +381,31 @@ export default function App() {
                     <TabBar />
 
                     {hasActiveTab ? (
-                        <ResizablePanelGroup
-                            direction="horizontal"
-                            className="flex-1"
-                            autoSaveId="main-split"
-                        >
-                            <ResizablePanel defaultSize={45} minSize={28} maxSize={72}>
+                        isWsActive ? (
+                            <div className="flex-1 overflow-hidden">
                                 <ErrorBoundary label="Request panel">
                                     <RequestPanel />
                                 </ErrorBoundary>
-                            </ResizablePanel>
-                            <ResizableHandle />
-                            <ResizablePanel defaultSize={55} minSize={28} maxSize={72}>
-                                <ErrorBoundary label="Response panel">
-                                    <ResponsePanel />
-                                </ErrorBoundary>
-                            </ResizablePanel>
-                        </ResizablePanelGroup>
+                            </div>
+                        ) : (
+                            <ResizablePanelGroup
+                                direction="horizontal"
+                                className="flex-1"
+                                autoSaveId="main-split"
+                            >
+                                <ResizablePanel defaultSize={45} minSize={28} maxSize={72}>
+                                    <ErrorBoundary label="Request panel">
+                                        <RequestPanel />
+                                    </ErrorBoundary>
+                                </ResizablePanel>
+                                <ResizableHandle />
+                                <ResizablePanel defaultSize={55} minSize={28} maxSize={72}>
+                                    <ErrorBoundary label="Response panel">
+                                        <ResponsePanel />
+                                    </ErrorBoundary>
+                                </ResizablePanel>
+                            </ResizablePanelGroup>
+                        )
                     ) : hasOrgs ? (
                         <CollectionsHome />
                     ) : (
