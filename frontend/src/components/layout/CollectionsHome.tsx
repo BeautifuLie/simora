@@ -11,10 +11,15 @@ import {
     Copy,
     Zap,
     ArrowDownToLine,
+    KeyRound,
 } from 'lucide-react';
 import { cn, shortcut } from '@/lib/utils';
 import { useAppStore, type Collection, type Request, type Folder } from '@/store/app';
 import { parseCollection } from '@/lib/importParsers';
+import { PasswordModal } from '@/components/ui/PasswordModal';
+import * as CollectionService from '../../../wailsjs/go/service/CollectionService';
+import { service } from '../../../wailsjs/go/models';
+import { SaveFile } from '../../../wailsjs/go/main/App';
 
 // ── Utilities ──────────────────────────────────────────────────────────────
 
@@ -300,13 +305,7 @@ function exportCollectionToInsomnia(col: Collection): string {
 }
 
 function downloadJson(content: string, filename: string) {
-    const blob = new Blob([content], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    SaveFile(content, filename).catch(err => console.error('Save file failed:', err));
 }
 
 // ── Collection tile ────────────────────────────────────────────────────────
@@ -333,14 +332,16 @@ function CollectionTile({
         importCollection,
     } = useAppStore();
     const [renaming, setRenaming] = React.useState(false);
+    const [exportPasswordPending, setExportPasswordPending] = React.useState(false);
 
     React.useEffect(() => {
         if (autoRename) setRenaming(true);
     }, [autoRename]);
 
+    const orgId = activeOrgId ?? organizations[0]?.id ?? '';
+    const projectId = activeProjectId ?? organizations[0]?.projects?.[0]?.id ?? '';
+
     function duplicateCollection(source: Collection) {
-        const orgId = activeOrgId ?? organizations[0]?.id ?? '';
-        const projectId = activeProjectId ?? organizations[0]?.projects?.[0]?.id ?? '';
         if (!orgId || !projectId) return;
         const newCol = {
             id: crypto.randomUUID(),
@@ -357,6 +358,17 @@ function CollectionTile({
         } as any;
         importCollection(orgId, projectId, newCol);
     }
+
+    function exportSimora(password?: string) {
+        const opts = service.ExportOptions.createFrom({
+            IncludeSecrets: !!password,
+            Password: password ?? '',
+        });
+        CollectionService.ExportCollection(orgId, projectId, col.id, opts)
+            .then(json => downloadJson(json, `${col.name}.simora_collection.json`))
+            .catch(err => alert('Export failed: ' + String(err)));
+    }
+
     const { pos, open: openCtx, close: closeCtx } = useContextMenu();
 
     const totalRequests =
@@ -375,6 +387,17 @@ function CollectionTile({
             label: 'Duplicate',
             icon: ({ style }) => <Copy style={style} />,
             action: () => duplicateCollection(col),
+        },
+        { label: 'divider' as any, action: () => {}, divider: true },
+        {
+            label: 'Export as Simora',
+            icon: ({ style }) => <Download style={style} />,
+            action: () => exportSimora(),
+        },
+        {
+            label: 'Export as Simora (with credentials)',
+            icon: ({ style }) => <KeyRound style={style} />,
+            action: () => setExportPasswordPending(true),
         },
         {
             label: 'Export as Postman',
@@ -547,6 +570,16 @@ function CollectionTile({
             </div>
 
             {pos && <ContextMenu pos={pos} items={ctxItems} onClose={closeCtx} />}
+            {exportPasswordPending && (
+                <PasswordModal
+                    mode="export"
+                    onConfirm={pwd => {
+                        setExportPasswordPending(false);
+                        exportSimora(pwd);
+                    }}
+                    onCancel={() => setExportPasswordPending(false)}
+                />
+            )}
         </div>
     );
 }
@@ -721,9 +754,15 @@ export function CollectionsHome() {
         createCollection,
         setActiveCollection,
         importCollection,
+        importSimoraCollection,
     } = useAppStore();
     const importInputRef = React.useRef<HTMLInputElement>(null);
     const [newColId, setNewColId] = React.useState<string | null>(null);
+    const [importPasswordState, setImportPasswordState] = React.useState<{
+        text: string;
+        orgId: string;
+        projectId: string;
+    } | null>(null);
 
     const org = organizations.find(o => o.id === activeOrgId) ?? organizations[0];
     const project = org?.projects?.find(p => p.id === activeProjectId) ?? org?.projects?.[0];
@@ -735,14 +774,34 @@ export function CollectionsHome() {
         e.target.value = '';
         try {
             const text = await file.text();
+            const orgId = org?.id ?? '';
+            const projectId = project?.id ?? '';
+            if (!orgId || !projectId) return;
+
+            // Detect Simora format
+            let parsed: any;
+            try {
+                parsed = JSON.parse(text);
+            } catch {
+                parsed = null;
+            }
+
+            if (parsed?.__simoraCollection) {
+                if (parsed.exportedSecrets && Object.keys(parsed.exportedSecrets).length > 0) {
+                    // Encrypted — show password modal
+                    setImportPasswordState({ text, orgId, projectId });
+                } else {
+                    // Simora format but no secrets
+                    await importSimoraCollection(orgId, projectId, text, '');
+                }
+                return;
+            }
+
             const { data: result, error: importError } = parseCollection(text);
             if (importError || !result) {
                 alert(importError ?? 'Unknown import error');
                 return;
             }
-            const orgId = org?.id ?? '';
-            const projectId = project?.id ?? '';
-            if (!orgId || !projectId) return;
             const newCol = {
                 id: crypto.randomUUID(),
                 name: result.name,
@@ -880,6 +939,22 @@ export function CollectionsHome() {
                     </div>
                 )}
             </div>
+
+            {importPasswordState && (
+                <PasswordModal
+                    mode="import"
+                    onConfirm={async pwd => {
+                        const { text, orgId, projectId } = importPasswordState;
+                        setImportPasswordState(null);
+                        try {
+                            await importSimoraCollection(orgId, projectId, text, pwd);
+                        } catch (err) {
+                            alert('Import failed: ' + String(err));
+                        }
+                    }}
+                    onCancel={() => setImportPasswordState(null)}
+                />
+            )}
         </div>
     );
 }

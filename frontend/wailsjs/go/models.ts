@@ -7,11 +7,17 @@ export namespace domain {
 	    password: string;
 	    headerName: string;
 	    headerValue: string;
-	
+	    oauth2GrantType: string;
+	    oauth2ClientId: string;
+	    oauth2ClientSecret: string;
+	    oauth2TokenUrl: string;
+	    oauth2Scope: string;
+	    oauth2AccessToken: string;
+
 	    static createFrom(source: any = {}) {
 	        return new AuthConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.type = source["type"];
@@ -20,6 +26,12 @@ export namespace domain {
 	        this.password = source["password"];
 	        this.headerName = source["headerName"];
 	        this.headerValue = source["headerValue"];
+	        this.oauth2GrantType = source["oauth2GrantType"];
+	        this.oauth2ClientId = source["oauth2ClientId"];
+	        this.oauth2ClientSecret = source["oauth2ClientSecret"];
+	        this.oauth2TokenUrl = source["oauth2TokenUrl"];
+	        this.oauth2Scope = source["oauth2Scope"];
+	        this.oauth2AccessToken = source["oauth2AccessToken"];
 	    }
 	}
 	export class CollectionVariable {
@@ -136,26 +148,36 @@ export namespace domain {
 	    queueUrl: string;
 	    body: string;
 	    region: string;
+	    endpoint: string;
 	    delaySeconds: number;
+	    maxMessages: number;
+	    waitSeconds: number;
 	    attributes: SqsAttribute[];
 	    accessKeyId: string;
-	    secretKey: string;
+	    secretAccessKey: string;
 	    sessionToken: string;
-	
+	    messageGroupId: string;
+	    messageDeduplicationId: string;
+
 	    static createFrom(source: any = {}) {
 	        return new SqsConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.queueUrl = source["queueUrl"];
 	        this.body = source["body"];
 	        this.region = source["region"];
+	        this.endpoint = source["endpoint"];
 	        this.delaySeconds = source["delaySeconds"];
+	        this.maxMessages = source["maxMessages"];
+	        this.waitSeconds = source["waitSeconds"];
 	        this.attributes = this.convertValues(source["attributes"], SqsAttribute);
 	        this.accessKeyId = source["accessKeyId"];
-	        this.secretKey = source["secretKey"];
+	        this.secretAccessKey = source["secretAccessKey"];
 	        this.sessionToken = source["sessionToken"];
+	        this.messageGroupId = source["messageGroupId"];
+	        this.messageDeduplicationId = source["messageDeduplicationId"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -589,7 +611,22 @@ export namespace main {
 }
 
 export namespace service {
-	
+
+	export class ExportOptions {
+	    IncludeSecrets: boolean;
+	    Password: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ExportOptions(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.IncludeSecrets = source["IncludeSecrets"];
+	        this.Password = source["Password"];
+	    }
+	}
+
 	export class CookieEntry {
 	    domain: string;
 	    name: string;

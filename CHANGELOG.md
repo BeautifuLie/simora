@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Credentials are now stored in the OS keyring (macOS Keychain / Windows Credential Manager / Linux Secret Service) and never written to `config.json`; existing plaintext credentials are migrated automatically on first launch
+- Linux fallback: when no Secret Service daemon is available, credentials are stored in an AES-256-GCM encrypted file (`~/.config/simora/keyring.enc`) using a machine-derived key
+- Export collection as Simora format (`.simora_collection.json`) — includes full request configuration; credentials are excluded by default
+- Export collection as Simora format with credentials — AES-256-GCM password-encrypted per-field secrets embedded in `exportedSecrets`; requires a password on import
+- Import Simora-format collections: detects `__simoraCollection` marker, decrypts credentials with provided password when present
 - Settings → About now shows the config directory path (`~/.config/simora`) with an "Open" button that reveals it in the system file manager
 - QA environment: `docker-compose.qa.yml` with httpbin (HTTP), grpc-echo (gRPC), Kafka (no-auth), LocalStack SQS, and WebSocket echo server; `make qa.up` / `qa.down` / `qa.status` targets; ready-to-import collections per protocol in `qa/`
 - `make qa.seed` injects a "QA" workspace with all five protocol collections directly into `~/.config/simora/config.json`; `make qa.unseed` removes it cleanly by its fixed ID without touching other data
