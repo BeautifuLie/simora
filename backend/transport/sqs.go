@@ -33,6 +33,7 @@ type SqsSendRequest struct {
 	QueueURL     string
 	Body         string
 	Region       string
+	Endpoint     string // optional custom endpoint URL (e.g. http://localhost:4566 for LocalStack)
 	DelaySeconds int32
 	Attributes   []SqsMessageAttribute
 	Auth         SqsAuth
@@ -45,6 +46,7 @@ type SqsSendRequest struct {
 type SqsReceiveRequest struct {
 	QueueURL    string
 	Region      string
+	Endpoint    string // optional custom endpoint URL (e.g. http://localhost:4566 for LocalStack)
 	MaxMessages int32
 	WaitSeconds int32
 	Auth        SqsAuth
@@ -53,7 +55,9 @@ type SqsReceiveRequest struct {
 // buildSqsClient creates an AWS SQS client with the given credentials and region.
 // When explicit credentials are absent it falls back to the default credential
 // chain (AWS_ACCESS_KEY_ID env vars, ~/.aws/credentials, IAM instance role, …).
-func buildSqsClient(ctx context.Context, region string, auth SqsAuth) (*sqs.Client, error) {
+// When endpoint is non-empty (e.g. "http://localhost:4566" for LocalStack) it
+// overrides the default AWS service endpoint.
+func buildSqsClient(ctx context.Context, region, endpoint string, auth SqsAuth) (*sqs.Client, error) {
 	if auth.AccessKeyID != "" && auth.SecretAccessKey != "" {
 		cfg := aws.Config{
 			Region: region,
@@ -64,11 +68,20 @@ func buildSqsClient(ctx context.Context, region string, auth SqsAuth) (*sqs.Clie
 			),
 		}
 
+		if endpoint != "" {
+			cfg.BaseEndpoint = aws.String(endpoint)
+		}
+
 		return sqs.NewFromConfig(cfg), nil
 	}
 
 	// Use the SDK default credential chain (env vars, ~/.aws/credentials, IAM role).
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+	opts := []func(*config.LoadOptions) error{config.WithRegion(region)}
+	if endpoint != "" {
+		opts = append(opts, config.WithBaseEndpoint(endpoint))
+	}
+
+	cfg, err := config.LoadDefaultConfig(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("load AWS config: %w", err)
 	}
@@ -113,7 +126,7 @@ func SqsSend(ctx context.Context, req SqsSendRequest) (string, error) {
 		req.Region = sqsDefaultRegion
 	}
 
-	client, err := buildSqsClient(ctx, req.Region, req.Auth)
+	client, err := buildSqsClient(ctx, req.Region, req.Endpoint, req.Auth)
 	if err != nil {
 		return "", err
 	}
@@ -223,7 +236,7 @@ func SqsReceive(ctx context.Context, req SqsReceiveRequest) (string, error) {
 
 	normaliseSqsReceiveReq(&req)
 
-	client, err := buildSqsClient(ctx, req.Region, req.Auth)
+	client, err := buildSqsClient(ctx, req.Region, req.Endpoint, req.Auth)
 	if err != nil {
 		return "", err
 	}

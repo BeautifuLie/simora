@@ -799,6 +799,7 @@ export namespace transport {
 	export class SqsReceiveRequest {
 	    QueueURL: string;
 	    Region: string;
+	    Endpoint: string;
 	    MaxMessages: number;
 	    WaitSeconds: number;
 	    Auth: SqsAuth;
@@ -811,6 +812,7 @@ export namespace transport {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.QueueURL = source["QueueURL"];
 	        this.Region = source["Region"];
+	        this.Endpoint = source["Endpoint"];
 	        this.MaxMessages = source["MaxMessages"];
 	        this.WaitSeconds = source["WaitSeconds"];
 	        this.Auth = this.convertValues(source["Auth"], SqsAuth);
@@ -838,6 +840,7 @@ export namespace transport {
 	    QueueURL: string;
 	    Body: string;
 	    Region: string;
+	    Endpoint: string;
 	    DelaySeconds: number;
 	    Attributes: SqsMessageAttribute[];
 	    Auth: SqsAuth;
@@ -853,6 +856,7 @@ export namespace transport {
 	        this.QueueURL = source["QueueURL"];
 	        this.Body = source["Body"];
 	        this.Region = source["Region"];
+	        this.Endpoint = source["Endpoint"];
 	        this.DelaySeconds = source["DelaySeconds"];
 	        this.Attributes = this.convertValues(source["Attributes"], SqsMessageAttribute);
 	        this.Auth = this.convertValues(source["Auth"], SqsAuth);

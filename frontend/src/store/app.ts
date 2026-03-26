@@ -360,7 +360,10 @@ function defaultSqs(): SqsConfig {
         queueUrl: '',
         body: '',
         region: 'us-east-1',
+        endpoint: '',
         delaySeconds: 0,
+        maxMessages: 0,
+        waitSeconds: 0,
         attributes: [],
         accessKeyId: '',
         secretAccessKey: '',
@@ -1335,29 +1338,42 @@ export const useAppStore = create<AppState>((set, get) => ({
                     SecretAccessKey: rv(sq.secretAccessKey),
                     SessionToken: rv(sq.sessionToken),
                 };
-                const attrs = sq.attributes
-                    .filter(a => a.enabled && a.key)
-                    .map(a => ({
-                        Key: a.key,
-                        Value: a.value,
-                        Type: a.type,
-                    }));
+                const isReceive = editing.method === 'GET';
                 let bodyStr: string;
                 if (isWails) {
-                    bodyStr = await SqsService.Send({
-                        QueueURL: rv(sq.queueUrl),
-                        Body: rv(sq.body),
-                        Region: rv(sq.region),
-                        DelaySeconds: sq.delaySeconds,
-                        Attributes: attrs,
-                        Auth: sqsAuth,
-                        MessageGroupID: sq.messageGroupId,
-                        MessageDeduplicationID: sq.messageDeduplicationId,
-                    } as any);
+                    if (isReceive) {
+                        bodyStr = await SqsService.Receive({
+                            QueueURL: rv(sq.queueUrl),
+                            Region: rv(sq.region),
+                            Endpoint: rv(sq.endpoint),
+                            MaxMessages: sq.maxMessages,
+                            WaitSeconds: sq.waitSeconds,
+                            Auth: sqsAuth,
+                        } as any);
+                    } else {
+                        const attrs = sq.attributes
+                            .filter(a => a.enabled && a.key)
+                            .map(a => ({
+                                Key: a.key,
+                                Value: a.value,
+                                Type: a.type,
+                            }));
+                        bodyStr = await SqsService.Send({
+                            QueueURL: rv(sq.queueUrl),
+                            Body: rv(sq.body),
+                            Region: rv(sq.region),
+                            Endpoint: rv(sq.endpoint),
+                            DelaySeconds: sq.delaySeconds,
+                            Attributes: attrs,
+                            Auth: sqsAuth,
+                            MessageGroupID: sq.messageGroupId,
+                            MessageDeduplicationID: sq.messageDeduplicationId,
+                        } as any);
+                    }
                 } else {
                     bodyStr = JSON.stringify(
                         {
-                            status: 'sent',
+                            status: isReceive ? 'received' : 'sent',
                             messageId: 'mock-id-' + Date.now(),
                             queueUrl: sq.queueUrl,
                         },

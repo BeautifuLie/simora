@@ -887,6 +887,7 @@ export function GrpcPanel() {
                         }}
                     >
                         <Search style={{ width: 11, height: 11 }} />
+                        Reflect
                     </button>
 
                     {showDiscover && (

@@ -85,7 +85,10 @@ export interface SqsConfig {
     queueUrl: string;
     body: string;
     region: string;
+    endpoint: string; // custom endpoint URL, e.g. http://localhost:4566 for LocalStack
     delaySeconds: number;
+    maxMessages: number; // receive only, 0 = backend default (10)
+    waitSeconds: number; // receive only, 0 = backend default
     attributes: {
         key: string;
         value: string;

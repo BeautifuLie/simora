@@ -37,7 +37,7 @@
             "delaySeconds": 0,
             "attributes": [],
             "accessKeyId": "{{sqs_key}}",
-            "secretKey": "{{sqs_secret}}",
+            "secretAccessKey": "{{sqs_secret}}",
             "sessionToken": ""
           }
         },
@@ -65,7 +65,7 @@
               { "key": "Source",      "value": "simora-qa",         "type": "String", "enabled": true }
             ],
             "accessKeyId": "{{sqs_key}}",
-            "secretKey": "{{sqs_secret}}",
+            "secretAccessKey": "{{sqs_secret}}",
             "sessionToken": ""
           }
         },
@@ -90,7 +90,7 @@
             "delaySeconds": 0,
             "attributes": [],
             "accessKeyId": "{{sqs_key}}",
-            "secretKey": "{{sqs_secret}}",
+            "secretAccessKey": "{{sqs_secret}}",
             "sessionToken": ""
           }
         }
@@ -122,7 +122,7 @@
             "delaySeconds": 0,
             "attributes": [],
             "accessKeyId": "{{sqs_key}}",
-            "secretKey": "{{sqs_secret}}",
+            "secretAccessKey": "{{sqs_secret}}",
             "sessionToken": ""
           }
         },
@@ -147,7 +147,7 @@
             "delaySeconds": 0,
             "attributes": [],
             "accessKeyId": "{{sqs_key}}",
-            "secretKey": "{{sqs_secret}}",
+            "secretAccessKey": "{{sqs_secret}}",
             "sessionToken": ""
           }
         }
