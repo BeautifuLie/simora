@@ -10,12 +10,20 @@ export function ClearCrashReports() {
   return window['go']['main']['App']['ClearCrashReports']();
 }
 
+export function GetConfigDir() {
+  return window['go']['main']['App']['GetConfigDir']();
+}
+
 export function GetCrashReport() {
   return window['go']['main']['App']['GetCrashReport']();
 }
 
 export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
+}
+
+export function OpenConfigDir() {
+  return window['go']['main']['App']['OpenConfigDir']();
 }
 
 export function ReportCrash(arg1) {

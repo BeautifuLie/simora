@@ -1,11 +1,11 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X, Monitor, Sliders, Sparkles, Trash2, Settings } from 'lucide-react';
+import { X, Monitor, Sliders, Sparkles, Trash2, Settings, FolderOpen } from 'lucide-react';
 import { cn, shortcut } from '@/lib/utils';
 import { useAppStore, type AppSettings } from '@/store/app';
 import { ClearCookies, GetCookies, DeleteCookie } from '../../../wailsjs/go/service/RequestService';
 import type { service } from '../../../wailsjs/go/models';
-import { GetVersion } from '../../../wailsjs/go/main/App';
+import { GetVersion, GetConfigDir, OpenConfigDir } from '../../../wailsjs/go/main/App';
 import logo from '@/assets/logo.png';
 import {
     DARK_PRESETS,
@@ -621,6 +621,7 @@ function RequestSection({
 
 function AboutSection() {
     const [version, setVersion] = React.useState('...');
+    const [configDir, setConfigDir] = React.useState('');
     const settingsError = useAppStore(s => s.settingsError);
     const { settings, updateSettings } = useAppStore();
 
@@ -628,6 +629,11 @@ function AboutSection() {
         GetVersion()
             .then(v => setVersion(v))
             .catch(() => setVersion('dev'));
+        if (isWails) {
+            GetConfigDir()
+                .then(d => setConfigDir(d))
+                .catch(() => {});
+        }
     }, []);
 
     return (
@@ -689,6 +695,28 @@ function AboutSection() {
                     />
                 </SettingRow>
             </SectionCard>
+
+            {configDir && (
+                <SectionCard title="Data">
+                    <SettingRow label="Config directory" hint={configDir}>
+                        <button
+                            className="flex items-center gap-1.5 cursor-pointer rounded-[var(--r-sm)] transition-all duration-150 hover:bg-[var(--bg-3)]"
+                            style={{
+                                height: 28,
+                                padding: '0 10px',
+                                background: 'var(--bg-2)',
+                                border: '1px solid var(--border-1)',
+                                color: 'var(--text-1)',
+                                fontSize: 12,
+                            }}
+                            onClick={() => isWails && OpenConfigDir().catch(console.error)}
+                        >
+                            <FolderOpen style={{ width: 12, height: 12 }} />
+                            Open
+                        </button>
+                    </SettingRow>
+                </SectionCard>
+            )}
 
             <SectionCard title="Stack">
                 {[

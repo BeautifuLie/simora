@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Settings → About now shows the config directory path (`~/.config/simora`) with an "Open" button that reveals it in the system file manager
+
 ### Fixed
 
 - HTTP responses larger than 10 MB now show an amber "truncated at 10 MB" banner in the response panel (PR #34)

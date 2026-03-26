@@ -6,9 +6,13 @@ export function CheckForUpdate():Promise<main.UpdateInfo>;
 
 export function ClearCrashReports():Promise<void>;
 
+export function GetConfigDir():Promise<string>;
+
 export function GetCrashReport():Promise<string>;
 
 export function GetVersion():Promise<string>;
+
+export function OpenConfigDir():Promise<void>;
 
 export function ReportCrash(arg1:string):Promise<void>;
 
