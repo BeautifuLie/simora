@@ -89,7 +89,7 @@ func (p *WsPool) Open(
 
 	p.conns.Store(connID, wc)
 
-	go p.readLoop(connID, wc, connCtx)
+	go p.readLoop(connCtx, connID, wc)
 
 	return nil
 }
@@ -109,7 +109,7 @@ func runBatchFlusher(msgCh <-chan WsIncomingMsg, onMessage func(msgs ...WsIncomi
 
 		onMessage(batch...)
 
-		batch = batch[:0]
+		batch = make([]WsIncomingMsg, 0, wsBatchSize)
 	}
 
 	for {
@@ -130,7 +130,7 @@ func runBatchFlusher(msgCh <-chan WsIncomingMsg, onMessage func(msgs ...WsIncomi
 	}
 }
 
-func (p *WsPool) readLoop(connID string, wc *wsConn, ctx context.Context) {
+func (p *WsPool) readLoop(ctx context.Context, connID string, wc *wsConn) {
 	var readErr error
 
 	defer func() {
@@ -201,6 +201,8 @@ func (p *WsPool) Send(connID, message string) error {
 }
 
 // Close terminates the identified persistent connection.
+// It cancels the connection context; the readLoop defer handles conn.Close,
+// pool removal, and the onClose callback (single-owner teardown).
 func (p *WsPool) Close(connID string) error {
 	val, ok := p.conns.Load(connID)
 	if !ok {
@@ -213,8 +215,6 @@ func (p *WsPool) Close(connID string) error {
 	}
 
 	wc.cancel()
-	wc.conn.Close()
-	p.conns.Delete(connID)
 
 	return nil
 }

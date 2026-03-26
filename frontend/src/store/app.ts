@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { domain } from '../../wailsjs/go/models';
+import { domain, transport } from '../../wailsjs/go/models';
 import * as OrganizationService from '../../wailsjs/go/service/OrganizationService';
 import * as RequestService from '../../wailsjs/go/service/RequestService';
 import * as KafkaService from '../../wailsjs/go/service/KafkaService';
@@ -180,7 +180,7 @@ interface AppState {
 
     // Actions — persistent WebSocket
     wsConnect: () => Promise<void>;
-    wsDisconnect: () => Promise<void>;
+    wsDisconnect: () => void;
     wsSend: (_message: string) => Promise<void>;
     wsReset: () => void;
 
@@ -800,6 +800,16 @@ function mapEnvs(
     return envs.map(e => (e.id === id ? fn(e) : e));
 }
 
+// ── WS helpers ─────────────────────────────────────────────────────────────
+
+function cleanupWsConnection(connId: string) {
+    if (!isWails) return;
+
+    EventsOff(`ws:batch:${connId}`);
+    EventsOff(`ws:close:${connId}`);
+    WsService.Close(connId).catch(console.error);
+}
+
 // ── Store ──────────────────────────────────────────────────────────────────
 export const useAppStore = create<AppState>((set, get) => ({
     organizations: [],
@@ -943,13 +953,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         const closingTab = tabs.find(t => t.id === tabId);
 
         if (closingTab?.wsConnId) {
-            const connId = closingTab.wsConnId;
-
-            if (isWails) {
-                EventsOff(`ws:batch:${connId}`);
-                EventsOff(`ws:close:${connId}`);
-                WsService.Close(connId).catch(console.error);
-            }
+            cleanupWsConnection(closingTab.wsConnId);
         }
 
         const idx = tabs.findIndex(t => t.id === tabId);
@@ -979,13 +983,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             const leavingTab = tabs.find(t => t.id === activeTabId);
 
             if (leavingTab?.wsConnId) {
-                const connId = leavingTab.wsConnId;
-
-                if (isWails) {
-                    EventsOff(`ws:batch:${connId}`);
-                    EventsOff(`ws:close:${connId}`);
-                    WsService.Close(connId).catch(console.error);
-                }
+                cleanupWsConnection(leavingTab.wsConnId);
 
                 set(st => ({
                     tabs: st.tabs.map(tb =>
@@ -1188,11 +1186,13 @@ export const useAppStore = create<AppState>((set, get) => ({
             let connId: string;
 
             if (isWails) {
-                connId = await WsService.Open({
-                    URL: rv(w.url),
-                    Headers: headersMap,
-                    TLSInsecure: w.tlsInsecure,
-                } as any);
+                connId = await WsService.Open(
+                    transport.WsOpenRequest.createFrom({
+                        URL: rv(w.url),
+                        Headers: headersMap,
+                        TLSInsecure: w.tlsInsecure,
+                    })
+                );
             } else {
                 connId = `mock_ws_${Date.now()}`;
             }
@@ -1291,7 +1291,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
     },
 
-    wsDisconnect: async () => {
+    wsDisconnect: () => {
         const s = get();
         const tab = selectActiveTab(s);
 
@@ -1304,11 +1304,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         const connId = tab.wsConnId;
         const tabId = tab.id;
 
-        if (isWails) {
-            EventsOff(`ws:batch:${connId}`);
-            EventsOff(`ws:close:${connId}`);
-            await WsService.Close(connId).catch(console.error);
-        }
+        cleanupWsConnection(connId);
 
         // Keep wsMessages so the history stays visible after disconnect.
         set(st => ({
@@ -1330,7 +1326,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         const tabId = tab.id;
 
         if (isWails) {
-            await WsService.Send(connId, message);
+            try {
+                await WsService.Send(connId, message);
+            } catch (err) {
+                console.error('ws send failed:', err);
+                return;
+            }
         }
 
         const sentMsg: WsMessage = {
