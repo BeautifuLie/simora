@@ -342,6 +342,7 @@ function ConnectedView() {
     const wsState = useAppStore(s => selectActiveTab(s)?.wsState ?? 'idle');
     const wsMessages = useAppStore(s => selectActiveTab(s)?.wsMessages ?? []);
     const wsDisconnect = useAppStore(s => s.wsDisconnect);
+    const wsReset = useAppStore(s => s.wsReset);
     const wsSend = useAppStore(s => s.wsSend);
 
     const [draft, setDraft] = useState('');
@@ -380,11 +381,15 @@ function ConnectedView() {
                     borderBottom: '1px solid var(--border-0)',
                 }}
             >
-                {/* Green dot + URL */}
+                {/* Status dot + URL */}
                 <div className="flex items-center gap-2 flex-1 overflow-hidden">
                     <span
                         className="shrink-0 inline-block rounded-full"
-                        style={{ width: 8, height: 8, background: WS_COLOR }}
+                        style={{
+                            width: 8,
+                            height: 8,
+                            background: wsState === 'connected' ? WS_COLOR : 'var(--text-2)',
+                        }}
                     />
                     <span
                         className="truncate"
@@ -399,31 +404,53 @@ function ConnectedView() {
                     <span
                         style={{
                             fontSize: 'var(--text-sm)',
-                            color: WS_COLOR,
+                            color: wsState === 'connected' ? WS_COLOR : 'var(--text-2)',
                             fontWeight: 600,
                             flexShrink: 0,
                         }}
                     >
-                        Connected
+                        {wsState === 'connected'
+                            ? 'Connected'
+                            : wsState === 'connecting'
+                              ? 'Connecting…'
+                              : 'Disconnected'}
                     </span>
                 </div>
 
-                <button
-                    className="flex items-center gap-1.5 rounded-[var(--r-sm)] shrink-0 cursor-pointer select-none transition-all duration-150 hover:brightness-110 active:brightness-95"
-                    style={{
-                        height: 'var(--input-height)',
-                        padding: '0 12px',
-                        background: '#ef4444',
-                        color: '#fff',
-                        fontSize: 'var(--text-base)',
-                        fontWeight: 600,
-                    }}
-                    onClick={wsDisconnect}
-                    title="Disconnect"
-                >
-                    <WifiOff style={{ width: 14, height: 14 }} />
-                    Disconnect
-                </button>
+                {wsState === 'disconnected' ? (
+                    <button
+                        className="flex items-center gap-1.5 rounded-[var(--r-sm)] shrink-0 cursor-pointer select-none transition-all duration-150 hover:brightness-110 active:brightness-95"
+                        style={{
+                            height: 'var(--input-height)',
+                            padding: '0 12px',
+                            background: WS_COLOR,
+                            color: '#0d1117',
+                            fontSize: 'var(--text-base)',
+                            fontWeight: 600,
+                        }}
+                        onClick={wsReset}
+                        title="New session"
+                    >
+                        New session
+                    </button>
+                ) : (
+                    <button
+                        className="flex items-center gap-1.5 rounded-[var(--r-sm)] shrink-0 cursor-pointer select-none transition-all duration-150 hover:brightness-110 active:brightness-95"
+                        style={{
+                            height: 'var(--input-height)',
+                            padding: '0 12px',
+                            background: '#ef4444',
+                            color: '#fff',
+                            fontSize: 'var(--text-base)',
+                            fontWeight: 600,
+                        }}
+                        onClick={wsDisconnect}
+                        title="Disconnect"
+                    >
+                        <WifiOff style={{ width: 14, height: 14 }} />
+                        Disconnect
+                    </button>
+                )}
             </div>
 
             {/* Message history */}
@@ -507,11 +534,13 @@ export function WsPanel() {
 
     if (!editing) return null;
 
-    const isConnected = wsState === 'connected' || wsState === 'connecting';
+    // Show the connected/history view whenever we have an active or recently closed session.
+    const showHistory =
+        wsState === 'connected' || wsState === 'connecting' || wsState === 'disconnected';
 
     return (
         <div className="flex flex-col h-full">
-            {isConnected ? <ConnectedView /> : <DisconnectedView />}
+            {showHistory ? <ConnectedView /> : <DisconnectedView />}
         </div>
     );
 }

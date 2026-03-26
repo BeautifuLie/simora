@@ -182,6 +182,7 @@ interface AppState {
     wsConnect: () => Promise<void>;
     wsDisconnect: () => Promise<void>;
     wsSend: (_message: string) => Promise<void>;
+    wsReset: () => void;
 
     // Actions — organizations
     createOrganization: (_name: string) => void;
@@ -573,6 +574,8 @@ function patchEditing(s: AppState, patch: Partial<EditingRequest>): Pick<AppStat
 // ── Wails detection ────────────────────────────────────────────────────────
 const isWails = typeof window !== 'undefined' && !!window.go;
 
+const WS_MAX_MESSAGES = 200; // keep last N messages to avoid memory growth
+
 // ── Mock data ──────────────────────────────────────────────────────────────
 const MOCK_ENVS: Environment[] = [
     {
@@ -943,7 +946,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             const connId = closingTab.wsConnId;
 
             if (isWails) {
-                EventsOff(`ws:msg:${connId}`);
+                EventsOff(`ws:batch:${connId}`);
                 EventsOff(`ws:close:${connId}`);
                 WsService.Close(connId).catch(console.error);
             }
@@ -979,7 +982,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 const connId = leavingTab.wsConnId;
 
                 if (isWails) {
-                    EventsOff(`ws:msg:${connId}`);
+                    EventsOff(`ws:batch:${connId}`);
                     EventsOff(`ws:close:${connId}`);
                     WsService.Close(connId).catch(console.error);
                 }
@@ -1208,29 +1211,35 @@ export const useAppStore = create<AppState>((set, get) => ({
                 };
             });
 
-            const msgEvent = `ws:msg:${connId}`;
+            const msgEvent = `ws:batch:${connId}`;
             const closeEvent = `ws:close:${connId}`;
 
             if (isWails) {
-                EventsOn(msgEvent, (msg: WsMessage) => {
+                EventsOn(msgEvent, (batch: unknown) => {
+                    const raw = Array.isArray(batch) ? batch : [batch];
+
                     set(st => {
                         const t = st.tabs.find(tb => tb.id === tabId);
 
                         if (!t || t.wsConnId !== connId) return st;
 
-                        const newMsg: WsMessage = {
+                        const incoming: WsMessage[] = raw.map((msg: any) => ({
                             id: crypto.randomUUID(),
-                            direction: 'received',
-                            type: (msg as any).type ?? 'text',
-                            data: (msg as any).data ?? '',
-                            timestamp: (msg as any).timestamp ?? new Date().toISOString(),
-                        };
+                            direction: 'received' as const,
+                            type: msg?.type ?? 'text',
+                            data: msg?.data ?? '',
+                            timestamp: msg?.timestamp ?? new Date().toISOString(),
+                        }));
+
+                        const merged = [...t.wsMessages, ...incoming];
+                        const capped =
+                            merged.length > WS_MAX_MESSAGES
+                                ? merged.slice(merged.length - WS_MAX_MESSAGES)
+                                : merged;
 
                         return {
                             tabs: st.tabs.map(tb =>
-                                tb.id === tabId
-                                    ? { ...tb, wsMessages: [...tb.wsMessages, newMsg] }
-                                    : tb
+                                tb.id === tabId ? { ...tb, wsMessages: capped } : tb
                             ),
                         };
                     });
@@ -1296,14 +1305,17 @@ export const useAppStore = create<AppState>((set, get) => ({
         const tabId = tab.id;
 
         if (isWails) {
-            EventsOff(`ws:msg:${connId}`);
+            EventsOff(`ws:batch:${connId}`);
             EventsOff(`ws:close:${connId}`);
             await WsService.Close(connId).catch(console.error);
         }
 
+        // Keep wsMessages so the history stays visible after disconnect.
         set(st => ({
             tabs: st.tabs.map(tb =>
-                tb.id === tabId ? { ...tb, wsState: 'idle' as WsConnState, wsConnId: null } : tb
+                tb.id === tabId
+                    ? { ...tb, wsState: 'disconnected' as WsConnState, wsConnId: null }
+                    : tb
             ),
         }));
     },
@@ -1335,6 +1347,11 @@ export const useAppStore = create<AppState>((set, get) => ({
             ),
         }));
     },
+
+    wsReset: () =>
+        set(st =>
+            patchActiveTab(st, { wsState: 'idle' as WsConnState, wsMessages: [], wsConnId: null })
+        ),
 
     // ── Send / save ───────────────────────────────────────────────────────────
     sendRequest: async () => {

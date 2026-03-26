@@ -34,13 +34,14 @@ func (s *WsService) Connect(req transport.WsConnectRequest) (string, error) {
 }
 
 // Open dials a persistent WebSocket connection and registers it in the pool.
-// Incoming messages and close events are emitted as Wails events to the frontend.
+// Incoming messages are batched and emitted as "ws:batch:<connID>" Wails events.
+// Connection close is emitted as "ws:close:<connID>".
 func (s *WsService) Open(req transport.WsOpenRequest) (string, error) {
 	connID := fmt.Sprintf("ws_%d", time.Now().UnixNano())
 	appCtx := s.appCtx.Get()
 
-	onMsg := func(msg transport.WsIncomingMsg) {
-		wailsrt.EventsEmit(appCtx, "ws:msg:"+connID, msg)
+	onMsg := func(msgs ...transport.WsIncomingMsg) {
+		wailsrt.EventsEmit(appCtx, "ws:batch:"+connID, msgs)
 	}
 
 	onClose := func(err error) {
@@ -52,10 +53,11 @@ func (s *WsService) Open(req transport.WsOpenRequest) (string, error) {
 		wailsrt.EventsEmit(appCtx, "ws:close:"+connID, errStr)
 	}
 
-	ctx, cancel := context.WithTimeout(s.appCtx.Get(), wsConnectTimeout)
-	defer cancel()
+	// Use a dial-only timeout; the connection itself lives until explicitly closed.
+	dialCtx, dialCancel := context.WithTimeout(appCtx, wsConnectTimeout)
+	defer dialCancel()
 
-	if err := transport.DefaultWsPool.Open(ctx, connID, req, onMsg, onClose); err != nil {
+	if err := transport.DefaultWsPool.Open(dialCtx, connID, req, onMsg, onClose); err != nil {
 		return "", fmt.Errorf("ws open: %w", err)
 	}
 

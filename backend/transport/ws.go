@@ -48,7 +48,7 @@ type WsOpenRequest struct {
 type wsConn struct {
 	conn      *websocket.Conn
 	cancel    context.CancelFunc
-	onMessage func(WsIncomingMsg)
+	onMessage func(msgs ...WsIncomingMsg) // called with a batch of ≥1 messages
 	onClose   func(err error)
 }
 
@@ -61,12 +61,12 @@ type WsPool struct {
 var DefaultWsPool = &WsPool{}
 
 // Open dials a WebSocket, registers it in the pool, and starts a reader goroutine.
-// onMsg is called for every incoming message; onClose is called when the connection ends.
+// onMsg is called with batches of incoming messages; onClose is called when the connection ends.
 func (p *WsPool) Open(
 	ctx context.Context,
 	connID string,
 	req WsOpenRequest,
-	onMsg func(WsIncomingMsg),
+	onMsg func(msgs ...WsIncomingMsg),
 	onClose func(err error),
 ) error {
 	dialer := wsDialer(req.TLSInsecure)
@@ -94,6 +94,42 @@ func (p *WsPool) Open(
 	return nil
 }
 
+// runBatchFlusher drains msgCh and calls onMessage with batches of up to wsBatchSize
+// messages, flushing at least every wsBatchInterval. It returns when msgCh is closed.
+func runBatchFlusher(msgCh <-chan WsIncomingMsg, onMessage func(msgs ...WsIncomingMsg)) {
+	ticker := time.NewTicker(wsBatchInterval)
+	defer ticker.Stop()
+
+	batch := make([]WsIncomingMsg, 0, wsBatchSize)
+
+	flush := func() {
+		if len(batch) == 0 {
+			return
+		}
+
+		onMessage(batch...)
+
+		batch = batch[:0]
+	}
+
+	for {
+		select {
+		case msg, ok := <-msgCh:
+			if !ok {
+				flush()
+				return
+			}
+
+			batch = append(batch, msg)
+			if len(batch) >= wsBatchSize {
+				flush()
+			}
+		case <-ticker.C:
+			flush()
+		}
+	}
+}
+
 func (p *WsPool) readLoop(connID string, wc *wsConn, ctx context.Context) {
 	var readErr error
 
@@ -103,6 +139,13 @@ func (p *WsPool) readLoop(connID string, wc *wsConn, ctx context.Context) {
 		wc.conn.Close()
 		wc.onClose(readErr)
 	}()
+
+	// msgCh buffers raw messages from the reader; the flush goroutine batches them.
+	msgCh := make(chan WsIncomingMsg, wsBatchBufSize)
+
+	go runBatchFlusher(msgCh, wc.onMessage)
+
+	defer close(msgCh)
 
 	for {
 		select {
@@ -117,7 +160,7 @@ func (p *WsPool) readLoop(connID string, wc *wsConn, ctx context.Context) {
 			return
 		}
 
-		msg := WsIncomingMsg{Timestamp: time.Now().UTC().Format(time.RFC3339)}
+		msg := WsIncomingMsg{Timestamp: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")}
 
 		switch mt {
 		case websocket.TextMessage:
@@ -130,7 +173,11 @@ func (p *WsPool) readLoop(connID string, wc *wsConn, ctx context.Context) {
 			continue
 		}
 
-		wc.onMessage(msg)
+		select {
+		case msgCh <- msg:
+		default:
+			// Drop message if buffer is full — prevents blocking the reader.
+		}
 	}
 }
 
