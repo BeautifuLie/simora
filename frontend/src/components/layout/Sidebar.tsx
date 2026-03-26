@@ -553,30 +553,28 @@ function WorkspaceSwitcher({
                                         >
                                             <Pencil style={{ width: 10, height: 10 }} />
                                         </button>
-                                        {organizations.length > 1 && (
-                                            <button
-                                                title="Delete workspace"
-                                                className="flex items-center justify-center rounded cursor-pointer transition-colors hover:bg-[rgba(248,113,113,0.15)] hover:text-[var(--red)]"
-                                                style={{
-                                                    width: 20,
-                                                    height: 20,
-                                                    color: 'var(--text-2)',
-                                                }}
-                                                onClick={e => {
-                                                    e.stopPropagation();
-                                                    if (
-                                                        confirm(
-                                                            `Delete workspace "${org.name}"? This will permanently remove all projects and collections inside.`
-                                                        )
-                                                    ) {
-                                                        deleteOrganization(org.id);
-                                                    }
-                                                    setOpen(false);
-                                                }}
-                                            >
-                                                <Trash2 style={{ width: 10, height: 10 }} />
-                                            </button>
-                                        )}
+                                        <button
+                                            title="Delete workspace"
+                                            className="flex items-center justify-center rounded cursor-pointer transition-colors hover:bg-[rgba(248,113,113,0.15)] hover:text-[var(--red)]"
+                                            style={{
+                                                width: 20,
+                                                height: 20,
+                                                color: 'var(--text-2)',
+                                            }}
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                if (
+                                                    confirm(
+                                                        `Delete workspace "${org.name}"? This will permanently remove all projects and collections inside.`
+                                                    )
+                                                ) {
+                                                    deleteOrganization(org.id);
+                                                }
+                                                setOpen(false);
+                                            }}
+                                        >
+                                            <Trash2 style={{ width: 10, height: 10 }} />
+                                        </button>
                                     </div>
                                 </div>
                             ))}
