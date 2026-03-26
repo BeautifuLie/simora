@@ -91,7 +91,7 @@
           "bodyType": "none",
           "formFields": [],
           "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
-          "notes": "Produce without a partition key — message lands on a random partition. Good for verifying the partition field in the response.",
+          "notes": "Produce without a partition key — message lands on a random partition.",
           "kafka": {
             "bootstrap": "{{kafka_bootstrap}}",
             "topic": "events",
@@ -119,8 +119,8 @@
       "folders": [],
       "requests": [
         {
-          "id": "qa-kafka-consume-latest",
-          "name": "Consume ← test-topic (latest)",
+          "id": "qa-kafka-consume-earliest",
+          "name": "Consume ← test-topic (earliest)",
           "protocol": "kafka",
           "method": "GET",
           "url": "{{kafka_bootstrap}}",
@@ -130,7 +130,7 @@
           "bodyType": "none",
           "formFields": [],
           "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
-          "notes": "Waits for new messages on test-topic. Produce a message first, then click Consume to see it arrive.",
+          "notes": "Reads all messages from the beginning of test-topic. Produce some first, then consume with offset=earliest to replay them.",
           "kafka": {
             "bootstrap": "{{kafka_bootstrap}}",
             "topic": "test-topic",
@@ -138,8 +138,8 @@
             "message": "",
             "headers": [],
             "mode": "consume",
-            "group": "simora-qa-group",
-            "offset": "latest",
+            "group": "",
+            "offset": "earliest",
             "saslMechanism": "none",
             "saslUsername": "",
             "saslPassword": "",
@@ -151,8 +151,8 @@
           }
         },
         {
-          "id": "qa-kafka-consume-earliest",
-          "name": "Consume ← orders (earliest, all history)",
+          "id": "qa-kafka-consume-orders",
+          "name": "Consume ← orders (earliest)",
           "protocol": "kafka",
           "method": "GET",
           "url": "{{kafka_bootstrap}}",
@@ -162,7 +162,7 @@
           "bodyType": "none",
           "formFields": [],
           "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
-          "notes": "Reads from the very beginning of the orders topic. Produce a few orders first, then consume with offset=earliest to replay all of them.",
+          "notes": "Reads from the very beginning of the orders topic. Produce a few orders first, then consume to replay all of them.",
           "kafka": {
             "bootstrap": "{{kafka_bootstrap}}",
             "topic": "orders",
@@ -170,7 +170,7 @@
             "message": "",
             "headers": [],
             "mode": "consume",
-            "group": "simora-qa-replay",
+            "group": "",
             "offset": "earliest",
             "saslMechanism": "none",
             "saslUsername": "",

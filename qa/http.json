@@ -1,7 +1,10 @@
 {
   "id": "qa-http-collection",
   "name": "QA — HTTP",
-  "variables": [],
+  "variables": [
+    { "key": "base_url", "value": "http://localhost:8080", "enabled": true },
+    { "key": "bearer_token", "value": "my-qa-token", "enabled": true }
+  ],
   "requests": [],
   "folders": [
     {
@@ -14,7 +17,7 @@
           "name": "GET /get — echo query params",
           "protocol": "http",
           "method": "GET",
-          "url": "http://localhost:8080/get",
+          "url": "{{base_url}}/get",
           "params": [
             { "key": "foo", "value": "bar", "enabled": true },
             { "key": "page", "value": "1", "enabled": true }
@@ -33,7 +36,7 @@
           "name": "POST /post — JSON body",
           "protocol": "http",
           "method": "POST",
-          "url": "http://localhost:8080/post",
+          "url": "{{base_url}}/post",
           "params": [],
           "headers": [
             { "key": "Content-Type", "value": "application/json", "enabled": true }
@@ -49,7 +52,7 @@
           "name": "POST /post — form-urlencoded",
           "protocol": "http",
           "method": "POST",
-          "url": "http://localhost:8080/post",
+          "url": "{{base_url}}/post",
           "params": [],
           "headers": [],
           "body": "",
@@ -66,7 +69,7 @@
           "name": "PUT /put — update",
           "protocol": "http",
           "method": "PUT",
-          "url": "http://localhost:8080/put",
+          "url": "{{base_url}}/put",
           "params": [],
           "headers": [
             { "key": "Content-Type", "value": "application/json", "enabled": true }
@@ -82,7 +85,7 @@
           "name": "DELETE /delete",
           "protocol": "http",
           "method": "DELETE",
-          "url": "http://localhost:8080/delete",
+          "url": "{{base_url}}/delete",
           "params": [],
           "headers": [],
           "body": "",
@@ -103,13 +106,13 @@
           "name": "GET /bearer — Bearer token",
           "protocol": "http",
           "method": "GET",
-          "url": "http://localhost:8080/bearer",
+          "url": "{{base_url}}/bearer",
           "params": [],
           "headers": [],
           "body": "",
           "bodyType": "none",
           "formFields": [],
-          "auth": { "type": "bearer", "token": "my-qa-token", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "auth": { "type": "bearer", "token": "{{bearer_token}}", "username": "", "password": "", "headerName": "", "headerValue": "" },
           "notes": "httpbin returns {\"authenticated\": true, \"token\": \"my-qa-token\"} when a valid Bearer header is sent."
         },
         {
@@ -117,7 +120,7 @@
           "name": "GET /basic-auth — Basic auth",
           "protocol": "http",
           "method": "GET",
-          "url": "http://localhost:8080/basic-auth/user/pass",
+          "url": "{{base_url}}/basic-auth/user/pass",
           "params": [],
           "headers": [],
           "body": "",
@@ -138,7 +141,7 @@
           "name": "GET /headers — echo request headers",
           "protocol": "http",
           "method": "GET",
-          "url": "http://localhost:8080/headers",
+          "url": "{{base_url}}/headers",
           "params": [],
           "headers": [
             { "key": "X-Custom-Header", "value": "hello-from-simora", "enabled": true },
@@ -155,7 +158,7 @@
           "name": "GET /status/418 — custom status code",
           "protocol": "http",
           "method": "GET",
-          "url": "http://localhost:8080/status/418",
+          "url": "{{base_url}}/status/418",
           "params": [],
           "headers": [],
           "body": "",
@@ -169,7 +172,7 @@
           "name": "GET /delay/2 — slow response",
           "protocol": "http",
           "method": "GET",
-          "url": "http://localhost:8080/delay/2",
+          "url": "{{base_url}}/delay/2",
           "params": [],
           "headers": [],
           "body": "",
@@ -183,7 +186,7 @@
           "name": "GET /image/png — binary response",
           "protocol": "http",
           "method": "GET",
-          "url": "http://localhost:8080/image/png",
+          "url": "{{base_url}}/image/png",
           "params": [],
           "headers": [],
           "body": "",

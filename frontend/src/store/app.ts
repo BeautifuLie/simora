@@ -1216,14 +1216,14 @@ export const useAppStore = create<AppState>((set, get) => ({
                 if (k.mode === 'produce') {
                     bodyStr = isWails
                         ? await KafkaService.Produce({
-                              Bootstrap: k.bootstrap,
-                              Topic: k.topic,
-                              Key: k.key,
-                              Message: k.message,
+                              Bootstrap: rv(k.bootstrap),
+                              Topic: rv(k.topic),
+                              Key: rv(k.key),
+                              Message: rv(k.message),
                               Headers: Object.fromEntries(
                                   k.headers
                                       .filter(h => h.enabled && h.key)
-                                      .map(h => [h.key, h.value])
+                                      .map(h => [rv(h.key), rv(h.value)])
                               ),
                               Auth: auth,
                               MessageFormat: k.messageFormat,
@@ -1239,8 +1239,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                 } else {
                     bodyStr = isWails
                         ? await KafkaService.Consume({
-                              Bootstrap: k.bootstrap,
-                              Topic: k.topic,
+                              Bootstrap: rv(k.bootstrap),
+                              Topic: rv(k.topic),
                               Group: k.group,
                               Offset: k.offset,
                               MaxMessages: k.maxMessages || 50,
@@ -1347,7 +1347,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                     bodyStr = await SqsService.Send({
                         QueueURL: rv(sq.queueUrl),
                         Body: rv(sq.body),
-                        Region: sq.region,
+                        Region: rv(sq.region),
                         DelaySeconds: sq.delaySeconds,
                         Attributes: attrs,
                         Auth: sqsAuth,

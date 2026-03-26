@@ -162,14 +162,15 @@ export function resolveVars(
             }
             return match;
         }
-        // Environment variables take precedence over collection variables.
-        if (env) {
-            const envVar = env.variables.find(v => v.key === trimmed && v.enabled);
-            if (envVar) return envVar.value;
-        }
+        // Collection variables take precedence over environment variables
+        // (more specific context wins, same as Postman's hierarchy).
         if (collectionVars) {
             const colVar = collectionVars.find(v => v.key === trimmed && v.enabled);
             if (colVar) return colVar.value;
+        }
+        if (env) {
+            const envVar = env.variables.find(v => v.key === trimmed && v.enabled);
+            if (envVar) return envVar.value;
         }
         return match;
     });

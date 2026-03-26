@@ -15,8 +15,7 @@ import {
     type BgPreset,
 } from '@/lib/bgPresets';
 
-const isWails =
-    typeof window !== 'undefined' && !!(window as unknown as Record<string, unknown>).__wails__;
+const isWails = typeof window !== 'undefined' && !!window.go;
 
 // ── Section card ────────────────────────────────────────────────────────────
 
