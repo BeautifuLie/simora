@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -50,6 +51,27 @@ type SqsReceiveRequest struct {
 	MaxMessages int32
 	WaitSeconds int32
 	Auth        SqsAuth
+}
+
+// resolveEndpoint returns the effective endpoint override for the SQS client.
+// Priority: explicit endpoint field → derived from queue URL when it does not
+// look like a real AWS SQS URL (i.e. the host is not "sqs.<region>.amazonaws.com").
+func resolveEndpoint(explicit, queueURL string) string {
+	if explicit != "" {
+		return explicit
+	}
+
+	u, err := url.Parse(queueURL)
+	if err != nil || u.Host == "" {
+		return ""
+	}
+
+	// Real AWS SQS URLs look like https://sqs.<region>.amazonaws.com/...
+	if strings.HasSuffix(u.Host, ".amazonaws.com") {
+		return ""
+	}
+
+	return u.Scheme + "://" + u.Host
 }
 
 // buildSqsClient creates an AWS SQS client with the given credentials and region.
@@ -126,7 +148,7 @@ func SqsSend(ctx context.Context, req SqsSendRequest) (string, error) {
 		req.Region = sqsDefaultRegion
 	}
 
-	client, err := buildSqsClient(ctx, req.Region, req.Endpoint, req.Auth)
+	client, err := buildSqsClient(ctx, req.Region, resolveEndpoint(req.Endpoint, req.QueueURL), req.Auth)
 	if err != nil {
 		return "", err
 	}
@@ -236,7 +258,7 @@ func SqsReceive(ctx context.Context, req SqsReceiveRequest) (string, error) {
 
 	normaliseSqsReceiveReq(&req)
 
-	client, err := buildSqsClient(ctx, req.Region, req.Endpoint, req.Auth)
+	client, err := buildSqsClient(ctx, req.Region, resolveEndpoint(req.Endpoint, req.QueueURL), req.Auth)
 	if err != nil {
 		return "", err
 	}
