@@ -1,9 +1,7 @@
 {
   "id": "qa-grpc-collection",
   "name": "QA — gRPC",
-  "variables": [
-    { "key": "grpc_host", "value": "localhost:50051", "enabled": true }
-  ],
+  "variables": [],
   "requests": [],
   "folders": [
     {
@@ -16,16 +14,16 @@
           "name": "SayHello — unary",
           "protocol": "grpc",
           "method": "POST",
-          "url": "{{grpc_host}}",
+          "url": "localhost:50051",
           "params": [],
           "headers": [],
           "body": "",
           "bodyType": "none",
           "formFields": [],
           "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
-          "notes": "Click 'Load' first to discover services via reflection. Then select helloworld.Greeter → SayHello and send {\"name\": \"QA\"}.",
+          "notes": "Click 'Load' to discover services via reflection. Then select helloworld.Greeter → SayHello and send.",
           "grpc": {
-            "server": "{{grpc_host}}",
+            "server": "localhost:50051",
             "service": "helloworld.Greeter",
             "method": "SayHello",
             "message": "{\n  \"name\": \"QA\"\n}",
@@ -38,7 +36,7 @@
           "name": "SayHello — with metadata",
           "protocol": "grpc",
           "method": "POST",
-          "url": "{{grpc_host}}",
+          "url": "localhost:50051",
           "params": [],
           "headers": [],
           "body": "",
@@ -47,7 +45,7 @@
           "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
           "notes": "Same call but with request metadata headers. Verify the metadata is accepted without errors.",
           "grpc": {
-            "server": "{{grpc_host}}",
+            "server": "localhost:50051",
             "service": "helloworld.Greeter",
             "method": "SayHello",
             "message": "{\n  \"name\": \"QA with metadata\"\n}",
@@ -56,35 +54,6 @@
               { "key": "authorization", "value": "Bearer qa-token", "enabled": true }
             ],
             "tls": false
-          }
-        }
-      ]
-    },
-    {
-      "id": "qa-grpc-public",
-      "name": "Public test server (grpcb.in)",
-      "folders": [],
-      "requests": [
-        {
-          "id": "qa-grpc-public-hello",
-          "name": "SayHello — grpcb.in (TLS)",
-          "protocol": "grpc",
-          "method": "POST",
-          "url": "grpcb.in:9001",
-          "params": [],
-          "headers": [],
-          "body": "",
-          "bodyType": "none",
-          "formFields": [],
-          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
-          "notes": "Public gRPC test server. Click 'Load' to browse services. Uses TLS — make sure 'TLS' is toggled on.",
-          "grpc": {
-            "server": "grpcb.in:9001",
-            "service": "hello.HelloService",
-            "method": "SayHello",
-            "message": "{\n  \"greeting\": \"Hello from Simora QA\"\n}",
-            "meta": [],
-            "tls": true
           }
         }
       ]
