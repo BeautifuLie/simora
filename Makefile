@@ -107,6 +107,12 @@ qa.down: ## stop and remove QA services
 qa.status: ## show QA service status
 	docker compose -f docker-compose.qa.yml ps
 
+qa.seed: ## inject QA workspace + collections into ~/.config/simora/config.json
+	go run ./cmd/qa-seed
+
+qa.unseed: ## remove QA workspace from ~/.config/simora/config.json
+	go run ./cmd/qa-seed --remove
+
 # === Project ===
 
 dev:
@@ -155,6 +161,8 @@ help:
 	@echo "  qa.up                          Start QA docker services"
 	@echo "  qa.down                        Stop and remove QA services"
 	@echo "  qa.status                      Show QA service status"
+	@echo "  qa.seed                        Inject QA workspace into app config"
+	@echo "  qa.unseed                      Remove QA workspace from app config"
 	@echo ""
 	@echo "Project:"
 	@echo "  dev                            Run in dev mode"
