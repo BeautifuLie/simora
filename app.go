@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	wailsrt "github.com/wailsapp/wails/v2/pkg/runtime"
 	"simora/backend/service"
 	"simora/backend/storage"
 )
@@ -190,10 +192,52 @@ func (a *App) ClearCrashReports() error {
 	return nil
 }
 
+// GetConfigDir returns the path to the application data directory (~/.config/simora).
+func (a *App) GetConfigDir() (string, error) {
+	dir, err := storage.ConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("config dir: %w", err)
+	}
+
+	return dir, nil
+}
+
+// OpenConfigDir opens the application data directory in the system file manager.
+func (a *App) OpenConfigDir() error {
+	dir, err := storage.ConfigDir()
+	if err != nil {
+		return fmt.Errorf("config dir: %w", err)
+	}
+
+	var name string
+
+	var args []string
+
+	switch runtime.GOOS {
+	case "darwin":
+		name = "open"
+		args = []string{dir}
+	case "windows":
+		name = "explorer"
+		args = []string{dir}
+	default:
+		name = "xdg-open"
+		args = []string{dir}
+	}
+
+	cmd := exec.CommandContext(a.ctx, name, args...)
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("open dir: %w", err)
+	}
+
+	return nil
+}
+
 // SaveFile opens a native save-file dialog and writes content to the chosen path.
 // Returns an empty string if the user cancelled.
 func (a *App) SaveFile(content, defaultFilename string) error {
-	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+	path, err := wailsrt.SaveFileDialog(a.ctx, wailsrt.SaveDialogOptions{
 		DefaultFilename: defaultFilename,
 	})
 	if err != nil {

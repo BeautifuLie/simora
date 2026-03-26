@@ -12,6 +12,11 @@ const (
 	filePerm = 0o600 // config files (owner read/write only)
 )
 
+// ConfigDir returns the application config directory (~/.config/simora).
+func ConfigDir() (string, error) {
+	return simoraDir()
+}
+
 // simoraDir returns the application config directory (~/.config/simora).
 func simoraDir() (string, error) {
 	home, err := os.UserHomeDir()
