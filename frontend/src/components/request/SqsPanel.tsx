@@ -1,7 +1,8 @@
 import React from 'react';
-import { Send, Plus, X, Loader2, ChevronDown } from 'lucide-react';
+import { Send, Inbox, Plus, X, Loader2, ChevronDown } from 'lucide-react';
 import { cn, shortcut } from '@/lib/utils';
 import { useAppStore, selectEditing } from '@/store/app';
+import { resolveVars } from '@/store/types';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { ProtocolBadge } from './ProtocolBadge';
 import { RequestNameBar } from './RequestNameBar';
@@ -46,6 +47,7 @@ function useVarProps() {
         return [];
     }, [path, organizations]);
     return {
+        activeEnv,
         envVars: activeEnv?.variables ?? [],
         collectionVars,
     };
@@ -154,8 +156,62 @@ function RegionSelector() {
 function SqsMessageTab() {
     const editing = useAppStore(selectEditing);
     const patchSqs = useAppStore(s => s.patchSqs);
-    const { envVars, collectionVars } = useVarProps();
+    const { activeEnv, envVars, collectionVars } = useVarProps();
     if (!editing) return null;
+
+    const isReceive = editing.method === 'GET';
+    const resolvedQueueUrl = resolveVars(editing.sqs.queueUrl, activeEnv, collectionVars);
+    const numInputStyle = {
+        height: 'var(--input-height)',
+        padding: '0 10px',
+        fontSize: 'var(--text-base)',
+        fontFamily: "'JetBrains Mono Variable', monospace",
+        color: 'var(--text-0)',
+        border: '1px solid var(--border-1)',
+    };
+
+    if (isReceive) {
+        return (
+            <div className="flex flex-col animate-tab-in" style={{ padding: 12, gap: 12 }}>
+                <div style={{ display: 'flex', gap: 12 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 160 }}>
+                        <Label>Max Messages</Label>
+                        <input
+                            type="number"
+                            min={0}
+                            max={10}
+                            value={editing.sqs.maxMessages}
+                            onChange={e =>
+                                patchSqs({
+                                    maxMessages: Math.max(0, Math.min(10, Number(e.target.value))),
+                                })
+                            }
+                            className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] transition-colors focus:border-[var(--border-focus)]"
+                            style={numInputStyle}
+                            placeholder="0 = default (10)"
+                        />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 160 }}>
+                        <Label>Wait Seconds</Label>
+                        <input
+                            type="number"
+                            min={0}
+                            max={20}
+                            value={editing.sqs.waitSeconds}
+                            onChange={e =>
+                                patchSqs({
+                                    waitSeconds: Math.max(0, Math.min(20, Number(e.target.value))),
+                                })
+                            }
+                            className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] transition-colors focus:border-[var(--border-focus)]"
+                            style={numInputStyle}
+                            placeholder="0 = short poll"
+                        />
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-full animate-tab-in" style={{ padding: 12, gap: 12 }}>
@@ -202,20 +258,13 @@ function SqsMessageTab() {
                             })
                         }
                         className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] transition-colors focus:border-[var(--border-focus)]"
-                        style={{
-                            height: 'var(--input-height)',
-                            padding: '0 10px',
-                            fontSize: 'var(--text-base)',
-                            fontFamily: "'JetBrains Mono Variable', monospace",
-                            color: 'var(--text-0)',
-                            border: '1px solid var(--border-1)',
-                        }}
+                        style={numInputStyle}
                     />
                 </div>
             </div>
 
-            {/* FIFO fields — only shown when the queue URL ends with .fifo */}
-            {editing.sqs.queueUrl.toLowerCase().endsWith('.fifo') && (
+            {/* FIFO fields — only shown when the (resolved) queue URL ends with .fifo */}
+            {resolvedQueueUrl.toLowerCase().endsWith('.fifo') && (
                 <div
                     style={{
                         display: 'flex',
@@ -453,6 +502,22 @@ function AuthTab() {
     return (
         <div className="flex flex-col gap-5 animate-tab-in" style={{ padding: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <Label>
+                    Custom Endpoint{' '}
+                    <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                        (optional — for LocalStack or VPC endpoints)
+                    </span>
+                </Label>
+                <input
+                    value={editing.sqs.endpoint}
+                    onChange={e => patchSqs({ endpoint: e.target.value })}
+                    placeholder="http://localhost:4566"
+                    className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] transition-colors focus:border-[var(--border-focus)]"
+                    style={inputStyle}
+                    spellCheck={false}
+                />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <Label>Access Key ID</Label>
                 <input
                     value={editing.sqs.accessKeyId}
@@ -521,6 +586,7 @@ const SQS_TABS = [
 export function SqsPanel() {
     const editing = useAppStore(selectEditing);
     const patchSqs = useAppStore(s => s.patchSqs);
+    const setMethod = useAppStore(s => s.setMethod);
     const setActiveTab = useAppStore(s => s.setActiveTab);
     const sendRequest = useAppStore(s => s.sendRequest);
     const { envVars, collectionVars } = useVarProps();
@@ -530,6 +596,8 @@ export function SqsPanel() {
     });
 
     if (!editing) return null;
+
+    const isReceive = editing.method === 'GET';
 
     const activeTab = SQS_TABS.some(t => t.id === editing.activeTab)
         ? editing.activeTab
@@ -564,6 +632,33 @@ export function SqsPanel() {
 
                 <RegionSelector />
 
+                {/* Send / Receive mode toggle */}
+                <div
+                    className="flex items-center rounded-[var(--r-sm)] shrink-0 overflow-hidden"
+                    style={{ border: '1px solid var(--border-1)', height: 'var(--input-height)' }}
+                >
+                    {(['POST', 'GET'] as const).map(m => (
+                        <button
+                            key={m}
+                            className={cn(
+                                'flex items-center gap-1 cursor-pointer select-none transition-colors duration-150',
+                                editing.method === m
+                                    ? 'bg-[var(--yellow)] text-[#0d1117]'
+                                    : 'text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-[var(--bg-3)]'
+                            )}
+                            style={{
+                                padding: '0 10px',
+                                height: '100%',
+                                fontSize: 12,
+                                fontWeight: 600,
+                            }}
+                            onClick={() => setMethod(m)}
+                        >
+                            {m === 'POST' ? 'Send' : 'Receive'}
+                        </button>
+                    ))}
+                </div>
+
                 <button
                     className="flex items-center gap-1.5 rounded-[var(--r-sm)] shrink-0 cursor-pointer select-none transition-all duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-50"
                     style={{
@@ -576,14 +671,16 @@ export function SqsPanel() {
                     }}
                     onClick={sendRequest}
                     disabled={responseLoading}
-                    title={`Send (${shortcut('↵')})`}
+                    title={`${isReceive ? 'Receive' : 'Send'} (${shortcut('↵')})`}
                 >
                     {responseLoading ? (
                         <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" />
+                    ) : isReceive ? (
+                        <Inbox style={{ width: 14, height: 14 }} />
                     ) : (
                         <Send style={{ width: 14, height: 14 }} />
                     )}
-                    Send
+                    {isReceive ? 'Receive' : 'Send'}
                 </button>
             </div>
 

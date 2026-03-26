@@ -59,6 +59,11 @@ const (
 	wsIdleTimeout    = 5 * time.Second
 	wsDefaultMaxMsgs = 50
 	wsMaxMsgBytes    = 1 << 20 // 1 MiB per message
+
+	// Persistent connection batching — limits IPC traffic for high-frequency streams.
+	wsBatchInterval = 100 * time.Millisecond
+	wsBatchSize     = 20
+	wsBatchBufSize  = 200 // channel buffer; messages dropped if Go can't keep up
 )
 
 // SQS defaults and validation limits.

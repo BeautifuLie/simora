@@ -1587,7 +1587,13 @@ function EmptyState() {
     );
 }
 
-function LoadingState() {
+function LoadingState({ protocol }: { protocol?: string }) {
+    const label =
+        protocol === 'kafka'
+            ? 'Connecting to Kafka…'
+            : protocol === 'websocket'
+              ? 'Connecting…'
+              : 'Sending request…';
     return (
         <div
             className="flex flex-col items-center justify-center h-full gap-3"
@@ -1597,7 +1603,7 @@ function LoadingState() {
                 style={{ width: 22, height: 22, color: 'var(--accent)' }}
                 className="animate-spin"
             />
-            <span style={{ fontSize: 12 }}>Sending request…</span>
+            <span style={{ fontSize: 12 }}>{label}</span>
         </div>
     );
 }
@@ -1676,6 +1682,7 @@ export function ResponsePanel() {
     const { setActiveResponseTab } = useAppStore();
     const response = tab?.response ?? null;
     const responseLoading = tab?.responseLoading ?? false;
+    const editingProtocol = tab?.editing?.protocol;
     const responseError = tab?.responseError ?? null;
     const activeResponseTab = tab?.activeResponseTab ?? 'body';
     const testResults = tab?.testResults ?? [];
@@ -1776,7 +1783,7 @@ export function ResponsePanel() {
 
             {/* ── Content ────────────────────────────────────────────────────── */}
             <div className="flex-1 overflow-hidden">
-                {responseLoading && <LoadingState />}
+                {responseLoading && <LoadingState protocol={editingProtocol} />}
                 {responseError && !responseLoading && <ErrorState message={responseError} />}
                 {!response && !responseLoading && !responseError && <EmptyState />}
 

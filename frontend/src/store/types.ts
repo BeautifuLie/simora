@@ -85,7 +85,10 @@ export interface SqsConfig {
     queueUrl: string;
     body: string;
     region: string;
+    endpoint: string; // custom endpoint URL, e.g. http://localhost:4566 for LocalStack
     delaySeconds: number;
+    maxMessages: number; // receive only, 0 = backend default (10)
+    waitSeconds: number; // receive only, 0 = backend default
     attributes: {
         key: string;
         value: string;
@@ -104,10 +107,20 @@ export interface SqsConfig {
 export interface WsConfig {
     url: string;
     headers: RequestHeader[];
-    message: string; // optional initial message sent on connect
-    maxMessages: number; // 0 = default (50)
-    idleTimeout: number; // seconds, 0 = default (5)
+    message: string; // optional initial message sent on connect / default send text
+    maxMessages: number; // 0 = default (50) — unused in persistent mode
+    idleTimeout: number; // seconds, 0 = default (5) — unused in persistent mode
     tlsInsecure: boolean;
+}
+
+export type WsConnState = 'idle' | 'connecting' | 'connected' | 'disconnected';
+
+export interface WsMessage {
+    id: string;
+    direction: 'sent' | 'received';
+    type: 'text' | 'binary';
+    data: string;
+    timestamp: string; // ISO
 }
 
 // ── Environment ────────────────────────────────────────────────────────────
@@ -162,14 +175,15 @@ export function resolveVars(
             }
             return match;
         }
-        // Environment variables take precedence over collection variables.
-        if (env) {
-            const envVar = env.variables.find(v => v.key === trimmed && v.enabled);
-            if (envVar) return envVar.value;
-        }
+        // Collection variables take precedence over environment variables
+        // (more specific context wins, same as Postman's hierarchy).
         if (collectionVars) {
             const colVar = collectionVars.find(v => v.key === trimmed && v.enabled);
             if (colVar) return colVar.value;
+        }
+        if (env) {
+            const envVar = env.variables.find(v => v.key === trimmed && v.enabled);
+            if (envVar) return envVar.value;
         }
         return match;
     });
@@ -249,6 +263,9 @@ export interface Tab {
     responseError: string | null;
     activeResponseTab: 'body' | 'headers' | 'cookies' | 'timeline' | 'tests' | 'transform';
     testResults: TestResult[];
+    wsConnId: string | null;
+    wsMessages: WsMessage[];
+    wsState: WsConnState;
 }
 
 // ── Settings ───────────────────────────────────────────────────────────────

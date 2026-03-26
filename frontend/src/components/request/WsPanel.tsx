@@ -1,9 +1,12 @@
-import React from 'react';
-import { Send, Plus, X, Loader2 } from 'lucide-react';
-import { cn, shortcut } from '@/lib/utils';
-import { useAppStore, selectEditing } from '@/store/app';
+import React, { useRef, useEffect, useState } from 'react';
+import { Plus, X, Loader2, Wifi, WifiOff, Copy, Download, Send as SendIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useAppStore, selectEditing, selectActiveTab } from '@/store/app';
+import type { WsMessage } from '@/store/app';
+import { SaveFile } from '../../../wailsjs/go/main/App';
 import { ProtocolBadge } from './ProtocolBadge';
 import { RequestNameBar } from './RequestNameBar';
+import { VarInput } from '@/components/ui/VarInput';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -28,6 +31,7 @@ function Label({ children }: { children: React.ReactNode }) {
 function HeadersTab() {
     const editing = useAppStore(selectEditing);
     const patchWs = useAppStore(s => s.patchWs);
+
     if (!editing) return null;
 
     const headers = editing.ws.headers;
@@ -139,146 +143,36 @@ function HeadersTab() {
     );
 }
 
-// ── Message tab ────────────────────────────────────────────────────────────
-
-function MessageTab() {
-    const editing = useAppStore(selectEditing);
-    const patchWs = useAppStore(s => s.patchWs);
-    if (!editing) return null;
-
-    return (
-        <div className="flex flex-col h-full animate-tab-in" style={{ padding: 12, gap: 12 }}>
-            {/* Initial message */}
-            <div
-                style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 6,
-                    flex: 1,
-                    overflow: 'hidden',
-                }}
-            >
-                <Label>Initial Message (optional)</Label>
-                <textarea
-                    value={editing.ws.message}
-                    onChange={e => patchWs({ message: e.target.value })}
-                    className="flex-1 resize-none bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] leading-relaxed transition-colors duration-150 focus:border-[var(--border-focus)]"
-                    style={{
-                        padding: 10,
-                        fontSize: 'var(--text-base)',
-                        fontFamily: "'JetBrains Mono Variable', monospace",
-                        color: 'var(--text-0)',
-                        border: '1px solid var(--border-1)',
-                    }}
-                    placeholder='{"action": "subscribe", "channel": "events"}'
-                    spellCheck={false}
-                />
-            </div>
-
-            {/* Options */}
-            <div className="flex gap-12 shrink-0">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 140 }}>
-                    <Label>Max Messages</Label>
-                    <input
-                        type="number"
-                        min={1}
-                        max={500}
-                        value={editing.ws.maxMessages}
-                        onChange={e =>
-                            patchWs({
-                                maxMessages: Math.max(1, Math.min(500, Number(e.target.value))),
-                            })
-                        }
-                        className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] transition-colors focus:border-[var(--border-focus)]"
-                        style={{
-                            height: 'var(--input-height)',
-                            padding: '0 10px',
-                            fontSize: 'var(--text-base)',
-                            fontFamily: "'JetBrains Mono Variable', monospace",
-                            color: 'var(--text-0)',
-                            border: '1px solid var(--border-1)',
-                        }}
-                    />
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 140 }}>
-                    <Label>Idle Timeout (s)</Label>
-                    <input
-                        type="number"
-                        min={1}
-                        max={300}
-                        value={editing.ws.idleTimeout}
-                        onChange={e =>
-                            patchWs({
-                                idleTimeout: Math.max(1, Math.min(300, Number(e.target.value))),
-                            })
-                        }
-                        className="w-full bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] transition-colors focus:border-[var(--border-focus)]"
-                        style={{
-                            height: 'var(--input-height)',
-                            padding: '0 10px',
-                            fontSize: 'var(--text-base)',
-                            fontFamily: "'JetBrains Mono Variable', monospace",
-                            color: 'var(--text-0)',
-                            border: '1px solid var(--border-1)',
-                        }}
-                    />
-                </div>
-
-                <div
-                    style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 6,
-                        justifyContent: 'flex-end',
-                    }}
-                >
-                    <label
-                        className="flex items-center gap-2 cursor-pointer select-none"
-                        style={{ fontSize: 'var(--text-sm)', color: 'var(--text-1)' }}
-                    >
-                        <input
-                            type="checkbox"
-                            checked={editing.ws.tlsInsecure}
-                            onChange={e => patchWs({ tlsInsecure: e.target.checked })}
-                            style={{ accentColor: 'var(--ws-color)' }}
-                        />
-                        Skip TLS verification
-                    </label>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 // ── Tab definitions ────────────────────────────────────────────────────────
 
-const WS_TABS = [
-    { id: 'message', label: 'Message' },
+const WS_SETUP_TABS = [
     { id: 'headers', label: 'Headers' },
+    { id: 'options', label: 'Options' },
 ];
 
-// ── WsPanel ────────────────────────────────────────────────────────────────
+// ── Disconnected view (setup) ──────────────────────────────────────────────
 
 const WS_COLOR = '#22c55e'; // green-500
 
-export function WsPanel() {
+function DisconnectedView() {
     const editing = useAppStore(selectEditing);
     const patchWs = useAppStore(s => s.patchWs);
     const setActiveTab = useAppStore(s => s.setActiveTab);
-    const sendRequest = useAppStore(s => s.sendRequest);
-    const responseLoading = useAppStore(s => {
-        const t = s.activeTabId ? s.tabs.find(tab => tab.id === s.activeTabId) : null;
-        return t?.responseLoading ?? false;
-    });
+    const wsConnect = useAppStore(s => s.wsConnect);
+    const wsState = useAppStore(s => selectActiveTab(s)?.wsState ?? 'idle');
 
     if (!editing) return null;
 
-    const activeTab = WS_TABS.some(t => t.id === editing.activeTab) ? editing.activeTab : 'message';
+    const activeTab = WS_SETUP_TABS.some(t => t.id === editing.activeTab)
+        ? editing.activeTab
+        : 'headers';
+
+    const isConnecting = wsState === 'connecting';
 
     return (
         <>
             <RequestNameBar />
+
             {/* Address bar */}
             <div
                 className="flex items-center gap-2 shrink-0"
@@ -291,26 +185,11 @@ export function WsPanel() {
                 <ProtocolBadge />
 
                 {/* URL */}
-                <div
-                    className="flex-1 flex items-center rounded-[var(--r-sm)] overflow-hidden transition-colors duration-150 focus-within:border-[var(--border-focus)]"
-                    style={{
-                        height: 'var(--input-height)',
-                        border: '1px solid var(--border-1)',
-                        background: 'var(--bg-2)',
-                    }}
-                >
-                    <input
+                <div className="flex-1">
+                    <VarInput
                         value={editing.ws.url}
-                        onChange={e => patchWs({ url: e.target.value })}
-                        placeholder="wss://example.com/socket"
-                        className="w-full bg-transparent outline-none h-full"
-                        style={{
-                            padding: '0 12px',
-                            fontSize: 'var(--text-base)',
-                            fontFamily: "'JetBrains Mono Variable', monospace",
-                            color: 'var(--text-0)',
-                        }}
-                        spellCheck={false}
+                        onChange={url => patchWs({ url })}
+                        placeholder="ws://example.com/socket"
                     />
                 </div>
 
@@ -324,16 +203,16 @@ export function WsPanel() {
                         fontSize: 'var(--text-base)',
                         fontWeight: 600,
                     }}
-                    onClick={sendRequest}
-                    disabled={responseLoading}
-                    title={`Connect (${shortcut('↵')})`}
+                    onClick={wsConnect}
+                    disabled={isConnecting || !editing.ws.url.trim()}
+                    title="Connect"
                 >
-                    {responseLoading ? (
+                    {isConnecting ? (
                         <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" />
                     ) : (
-                        <Send style={{ width: 14, height: 14 }} />
+                        <Wifi style={{ width: 14, height: 14 }} />
                     )}
-                    Connect
+                    {isConnecting ? 'Connecting…' : 'Connect'}
                 </button>
             </div>
 
@@ -342,7 +221,7 @@ export function WsPanel() {
                 className="flex items-center shrink-0"
                 style={{ borderBottom: '1px solid var(--border-0)', paddingLeft: 4 }}
             >
-                {WS_TABS.map(tab => (
+                {WS_SETUP_TABS.map(tab => (
                     <button
                         key={tab.id}
                         className={cn(
@@ -372,9 +251,366 @@ export function WsPanel() {
 
             {/* Tab content */}
             <div className="flex-1 overflow-hidden">
-                {activeTab === 'message' && <MessageTab />}
                 {activeTab === 'headers' && <HeadersTab />}
+                {activeTab === 'options' && (
+                    <div
+                        className="flex flex-col h-full animate-tab-in"
+                        style={{ padding: 16, gap: 16 }}
+                    >
+                        {/* Initial message */}
+                        <div
+                            className="flex flex-col"
+                            style={{ gap: 6, flex: 1, overflow: 'hidden' }}
+                        >
+                            <Label>Initial Message (optional)</Label>
+                            <textarea
+                                value={editing.ws.message}
+                                onChange={e => patchWs({ message: e.target.value })}
+                                className="flex-1 resize-none bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] leading-relaxed transition-colors duration-150 focus:border-[var(--border-focus)]"
+                                style={{
+                                    padding: 10,
+                                    fontSize: 'var(--text-base)',
+                                    fontFamily: "'JetBrains Mono Variable', monospace",
+                                    color: 'var(--text-0)',
+                                    border: '1px solid var(--border-1)',
+                                }}
+                                placeholder='{"action": "subscribe", "channel": "events"}'
+                                spellCheck={false}
+                            />
+                        </div>
+
+                        {/* TLS option */}
+                        <label
+                            className="flex items-center gap-2 cursor-pointer select-none shrink-0"
+                            style={{ fontSize: 'var(--text-sm)', color: 'var(--text-1)' }}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={editing.ws.tlsInsecure}
+                                onChange={e => patchWs({ tlsInsecure: e.target.checked })}
+                                style={{ accentColor: 'var(--ws-color)' }}
+                            />
+                            Skip TLS verification
+                        </label>
+                    </div>
+                )}
             </div>
         </>
+    );
+}
+
+// ── Message bubble ─────────────────────────────────────────────────────────
+
+function MessageBubble({ msg }: { msg: WsMessage }) {
+    const isSent = msg.direction === 'sent';
+    const time = new Date(msg.timestamp).toLocaleTimeString();
+
+    return (
+        <div
+            className={cn('flex flex-col', isSent ? 'items-end' : 'items-start')}
+            style={{ gap: 2 }}
+        >
+            <div
+                className="flex items-center gap-1.5"
+                style={{ fontSize: 'var(--text-sm)', color: 'var(--text-2)' }}
+            >
+                <span>{isSent ? '→ sent' : '← received'}</span>
+                <span>{time}</span>
+            </div>
+            <div
+                className="max-w-[85%] break-all"
+                style={{
+                    padding: '6px 10px',
+                    borderRadius: 'var(--r-sm)',
+                    fontSize: 'var(--text-base)',
+                    fontFamily: "'JetBrains Mono Variable', monospace",
+                    background: isSent ? 'var(--accent)' : 'var(--bg-2)',
+                    color: isSent ? 'var(--accent-fg, #0d1117)' : 'var(--text-0)',
+                    border: isSent ? 'none' : '1px solid var(--border-1)',
+                    whiteSpace: 'pre-wrap',
+                }}
+            >
+                {msg.data}
+            </div>
+        </div>
+    );
+}
+
+// ── Connected view ─────────────────────────────────────────────────────────
+
+function ConnectedView() {
+    const editing = useAppStore(selectEditing);
+    const wsState = useAppStore(s => selectActiveTab(s)?.wsState ?? 'idle');
+    const wsMessages = useAppStore(s => selectActiveTab(s)?.wsMessages ?? []);
+    const wsDisconnect = useAppStore(s => s.wsDisconnect);
+    const wsReset = useAppStore(s => s.wsReset);
+    const wsSend = useAppStore(s => s.wsSend);
+
+    const [draft, setDraft] = useState('');
+    const [showSend, setShowSend] = useState(true);
+    const [copied, setCopied] = useState(false);
+    const bottomRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [wsMessages.length]);
+
+    if (!editing) return null;
+
+    const handleSend = () => {
+        if (!draft.trim()) return;
+
+        wsSend(draft);
+        setDraft('');
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+        }
+    };
+
+    const handleCopyJson = () => {
+        const json = JSON.stringify(wsMessages, null, 2);
+
+        navigator.clipboard.writeText(json).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        });
+    };
+
+    const handleDownload = () => {
+        const json = JSON.stringify(wsMessages, null, 2);
+        const filename = `ws-messages-${Date.now()}.json`;
+
+        SaveFile(json, filename);
+    };
+
+    return (
+        <>
+            <RequestNameBar />
+
+            {/* Status bar */}
+            <div
+                className="flex items-center gap-2 shrink-0"
+                style={{
+                    height: 'var(--toolbar-height)',
+                    padding: '0 12px',
+                    borderBottom: '1px solid var(--border-0)',
+                }}
+            >
+                {/* Status dot + URL */}
+                <div className="flex items-center gap-2 flex-1 overflow-hidden">
+                    <span
+                        className="shrink-0 inline-block rounded-full"
+                        style={{
+                            width: 8,
+                            height: 8,
+                            background: wsState === 'connected' ? WS_COLOR : 'var(--text-2)',
+                        }}
+                    />
+                    <span
+                        className="truncate"
+                        style={{
+                            fontSize: 'var(--text-sm)',
+                            fontFamily: "'JetBrains Mono Variable', monospace",
+                            color: 'var(--text-1)',
+                        }}
+                    >
+                        {editing.ws.url}
+                    </span>
+                    <span
+                        style={{
+                            fontSize: 'var(--text-sm)',
+                            color: wsState === 'connected' ? WS_COLOR : 'var(--text-2)',
+                            fontWeight: 600,
+                            flexShrink: 0,
+                        }}
+                    >
+                        {wsState === 'connected'
+                            ? 'Connected'
+                            : wsState === 'connecting'
+                              ? 'Connecting…'
+                              : 'Disconnected'}
+                    </span>
+                </div>
+
+                {/* Export buttons — only when there are messages */}
+                {wsMessages.length > 0 && (
+                    <>
+                        <button
+                            onClick={handleCopyJson}
+                            title="Copy messages as JSON"
+                            className="flex items-center gap-1 shrink-0 cursor-pointer select-none rounded transition-colors hover:bg-[var(--bg-3)]"
+                            style={{
+                                height: 'var(--input-height)',
+                                padding: '0 8px',
+                                fontSize: 'var(--text-sm)',
+                                color: copied ? WS_COLOR : 'var(--text-2)',
+                            }}
+                        >
+                            <Copy style={{ width: 13, height: 13 }} />
+                            {copied ? 'Copied!' : 'Copy JSON'}
+                        </button>
+                        <button
+                            onClick={handleDownload}
+                            title="Download messages as JSON file"
+                            className="flex items-center gap-1 shrink-0 cursor-pointer select-none rounded transition-colors hover:bg-[var(--bg-3)]"
+                            style={{
+                                height: 'var(--input-height)',
+                                padding: '0 8px',
+                                fontSize: 'var(--text-sm)',
+                                color: 'var(--text-2)',
+                            }}
+                        >
+                            <Download style={{ width: 13, height: 13 }} />
+                            Download
+                        </button>
+                    </>
+                )}
+
+                {/* Toggle send bar */}
+                <button
+                    onClick={() => setShowSend(v => !v)}
+                    title={showSend ? 'Hide send panel' : 'Show send panel'}
+                    className="flex items-center gap-1 shrink-0 cursor-pointer select-none rounded transition-colors hover:bg-[var(--bg-3)]"
+                    style={{
+                        height: 'var(--input-height)',
+                        padding: '0 8px',
+                        fontSize: 'var(--text-sm)',
+                        color: showSend ? 'var(--text-1)' : 'var(--text-2)',
+                    }}
+                >
+                    <SendIcon style={{ width: 13, height: 13 }} />
+                </button>
+
+                {wsState === 'disconnected' ? (
+                    <button
+                        className="flex items-center gap-1.5 rounded-[var(--r-sm)] shrink-0 cursor-pointer select-none transition-all duration-150 hover:brightness-110 active:brightness-95"
+                        style={{
+                            height: 'var(--input-height)',
+                            padding: '0 12px',
+                            background: WS_COLOR,
+                            color: '#0d1117',
+                            fontSize: 'var(--text-base)',
+                            fontWeight: 600,
+                        }}
+                        onClick={wsReset}
+                        title="New session"
+                    >
+                        New session
+                    </button>
+                ) : (
+                    <button
+                        className="flex items-center gap-1.5 rounded-[var(--r-sm)] shrink-0 cursor-pointer select-none transition-all duration-150 hover:brightness-110 active:brightness-95"
+                        style={{
+                            height: 'var(--input-height)',
+                            padding: '0 12px',
+                            background: '#ef4444',
+                            color: '#fff',
+                            fontSize: 'var(--text-base)',
+                            fontWeight: 600,
+                        }}
+                        onClick={wsDisconnect}
+                        title="Disconnect"
+                    >
+                        <WifiOff style={{ width: 14, height: 14 }} />
+                        Disconnect
+                    </button>
+                )}
+            </div>
+
+            {/* Message history */}
+            <div
+                className="flex-1 overflow-y-auto"
+                style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}
+            >
+                {wsMessages.length === 0 ? (
+                    <div
+                        className="flex flex-col items-center justify-center h-full"
+                        style={{ color: 'var(--text-2)', fontSize: 'var(--text-sm)', gap: 6 }}
+                    >
+                        <Wifi style={{ width: 32, height: 32, opacity: 0.3 }} />
+                        <span>Connected — waiting for messages…</span>
+                    </div>
+                ) : (
+                    wsMessages.map(msg => <MessageBubble key={msg.id} msg={msg} />)
+                )}
+                <div ref={bottomRef} />
+            </div>
+
+            {/* Send bar */}
+            {showSend && (
+                <div
+                    className="flex items-end gap-2 shrink-0"
+                    style={{
+                        padding: '8px 12px',
+                        borderTop: '1px solid var(--border-0)',
+                    }}
+                >
+                    <textarea
+                        value={draft}
+                        onChange={e => setDraft(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder={
+                            wsState === 'connected'
+                                ? 'Type a message… (Enter to send, Shift+Enter for newline)'
+                                : 'Disconnected'
+                        }
+                        disabled={wsState !== 'connected'}
+                        rows={1}
+                        className="flex-1 resize-none bg-[var(--bg-2)] outline-none rounded-[var(--r-sm)] transition-colors focus:border-[var(--border-focus)] disabled:opacity-50"
+                        style={{
+                            padding: '6px 10px',
+                            fontSize: 'var(--text-base)',
+                            fontFamily: "'JetBrains Mono Variable', monospace",
+                            color: 'var(--text-0)',
+                            border: '1px solid var(--border-1)',
+                            lineHeight: 1.5,
+                            maxHeight: 120,
+                            overflow: 'auto',
+                        }}
+                        spellCheck={false}
+                    />
+                    <button
+                        className="flex items-center gap-1.5 rounded-[var(--r-sm)] shrink-0 cursor-pointer select-none transition-all duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-50"
+                        style={{
+                            height: 'var(--input-height)',
+                            padding: '0 14px',
+                            background: WS_COLOR,
+                            color: '#0d1117',
+                            fontSize: 'var(--text-base)',
+                            fontWeight: 600,
+                            flexShrink: 0,
+                        }}
+                        onClick={handleSend}
+                        disabled={wsState !== 'connected' || !draft.trim()}
+                        title="Send (Enter)"
+                    >
+                        Send
+                    </button>
+                </div>
+            )}
+        </>
+    );
+}
+
+// ── WsPanel ────────────────────────────────────────────────────────────────
+
+export function WsPanel() {
+    const wsState = useAppStore(s => selectActiveTab(s)?.wsState ?? 'idle');
+    const editing = useAppStore(selectEditing);
+
+    if (!editing) return null;
+
+    // Show the connected/history view whenever we have an active or recently closed session.
+    const showHistory =
+        wsState === 'connected' || wsState === 'connecting' || wsState === 'disconnected';
+
+    return (
+        <div className="flex flex-col h-full">
+            {showHistory ? <ConnectedView /> : <DisconnectedView />}
+        </div>
     );
 }

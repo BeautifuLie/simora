@@ -257,6 +257,8 @@ function StatusBar() {
 export default function App() {
     const hasActiveTab = useAppStore(s => s.activeTabId !== null);
     const hasOrgs = useAppStore(s => s.organizations.length > 0);
+    const editing = useAppStore(selectEditing);
+    const isWs = editing?.protocol === 'websocket';
     const settings = useAppStore(s => s.settings);
     const sendRequest = useAppStore(s => s.sendRequest);
     const saveRequest = useAppStore(s => s.saveRequest);
@@ -376,23 +378,31 @@ export default function App() {
                     <TabBar />
 
                     {hasActiveTab ? (
-                        <ResizablePanelGroup
-                            direction="horizontal"
-                            className="flex-1"
-                            autoSaveId="main-split"
-                        >
-                            <ResizablePanel defaultSize={45} minSize={28} maxSize={72}>
+                        isWs ? (
+                            <div className="flex-1 overflow-hidden">
                                 <ErrorBoundary label="Request panel">
                                     <RequestPanel />
                                 </ErrorBoundary>
-                            </ResizablePanel>
-                            <ResizableHandle />
-                            <ResizablePanel defaultSize={55} minSize={28} maxSize={72}>
-                                <ErrorBoundary label="Response panel">
-                                    <ResponsePanel />
-                                </ErrorBoundary>
-                            </ResizablePanel>
-                        </ResizablePanelGroup>
+                            </div>
+                        ) : (
+                            <ResizablePanelGroup
+                                direction="horizontal"
+                                className="flex-1"
+                                autoSaveId="main-split"
+                            >
+                                <ResizablePanel defaultSize={45} minSize={28} maxSize={72}>
+                                    <ErrorBoundary label="Request panel">
+                                        <RequestPanel />
+                                    </ErrorBoundary>
+                                </ResizablePanel>
+                                <ResizableHandle />
+                                <ResizablePanel defaultSize={55} minSize={28} maxSize={72}>
+                                    <ErrorBoundary label="Response panel">
+                                        <ResponsePanel />
+                                    </ErrorBoundary>
+                                </ResizablePanel>
+                            </ResizablePanelGroup>
+                        )
                     ) : hasOrgs ? (
                         <CollectionsHome />
                     ) : (

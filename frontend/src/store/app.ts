@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { domain } from '../../wailsjs/go/models';
+import { domain, transport } from '../../wailsjs/go/models';
 import * as OrganizationService from '../../wailsjs/go/service/OrganizationService';
 import * as RequestService from '../../wailsjs/go/service/RequestService';
 import * as KafkaService from '../../wailsjs/go/service/KafkaService';
@@ -7,6 +7,7 @@ import * as SqsService from '../../wailsjs/go/service/SqsService';
 import * as GrpcService from '../../wailsjs/go/service/GrpcService';
 import * as WsService from '../../wailsjs/go/service/WsService';
 import * as SettingsService from '../../wailsjs/go/service/SettingsService';
+import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 
 // Re-export all shared types from types.ts so components can import from one place.
 export type {
@@ -28,6 +29,8 @@ export type {
     KafkaConfig,
     SqsConfig,
     WsConfig,
+    WsConnState,
+    WsMessage,
     EnvVariable,
     Environment,
     QueryParam,
@@ -55,6 +58,8 @@ import type {
     KafkaConfig,
     SqsConfig,
     WsConfig,
+    WsConnState,
+    WsMessage,
     EnvVariable,
     Environment,
     QueryParam,
@@ -172,6 +177,12 @@ interface AppState {
     saveRequest: () => Promise<void>;
     setChainValue: (_name: string, _value: unknown) => void;
     clearRecentRequests: () => void;
+
+    // Actions — persistent WebSocket
+    wsConnect: () => Promise<void>;
+    wsDisconnect: () => void;
+    wsSend: (_message: string) => Promise<void>;
+    wsReset: () => void;
 
     // Actions — organizations
     createOrganization: (_name: string) => void;
@@ -360,7 +371,10 @@ function defaultSqs(): SqsConfig {
         queueUrl: '',
         body: '',
         region: 'us-east-1',
+        endpoint: '',
         delaySeconds: 0,
+        maxMessages: 0,
+        waitSeconds: 0,
         attributes: [],
         accessKeyId: '',
         secretAccessKey: '',
@@ -488,6 +502,9 @@ function makeTab(override: Partial<Tab> = {}): Tab {
         responseError: null,
         activeResponseTab: 'body',
         testResults: [],
+        wsConnId: null,
+        wsMessages: [],
+        wsState: 'idle',
         ...override,
     };
 }
@@ -556,6 +573,8 @@ function patchEditing(s: AppState, patch: Partial<EditingRequest>): Pick<AppStat
 
 // ── Wails detection ────────────────────────────────────────────────────────
 const isWails = typeof window !== 'undefined' && !!window.go;
+
+const WS_MAX_MESSAGES = 200; // keep last N messages to avoid memory growth
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 const MOCK_ENVS: Environment[] = [
@@ -781,6 +800,16 @@ function mapEnvs(
     return envs.map(e => (e.id === id ? fn(e) : e));
 }
 
+// ── WS helpers ─────────────────────────────────────────────────────────────
+
+function cleanupWsConnection(connId: string) {
+    if (!isWails) return;
+
+    EventsOff(`ws:batch:${connId}`);
+    EventsOff(`ws:close:${connId}`);
+    WsService.Close(connId).catch(console.error);
+}
+
 // ── Store ──────────────────────────────────────────────────────────────────
 export const useAppStore = create<AppState>((set, get) => ({
     organizations: [],
@@ -919,6 +948,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     closeTab: tabId => {
         const { tabs, activeTabId, activeOrgId, activeProjectId } = get();
+
+        // Disconnect any open WS connection for the closing tab
+        const closingTab = tabs.find(t => t.id === tabId);
+
+        if (closingTab?.wsConnId) {
+            cleanupWsConnection(closingTab.wsConnId);
+        }
+
         const idx = tabs.findIndex(t => t.id === tabId);
         const newTabs = tabs.filter(t => t.id !== tabId);
         const newActiveId =
@@ -928,6 +965,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                   ? null
                   : (newTabs[Math.max(0, idx - 1)]?.id ?? null);
         const newActiveTab = newTabs.find(t => t.id === newActiveId) ?? null;
+
         set({
             tabs: newTabs,
             activeTabId: newActiveId,
@@ -938,7 +976,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     },
 
     switchTab: tabId => {
+        const { tabs, activeTabId } = get();
+
+        // When leaving a tab, disconnect any open WS connection
+        if (activeTabId && activeTabId !== tabId) {
+            const leavingTab = tabs.find(t => t.id === activeTabId);
+
+            if (leavingTab?.wsConnId) {
+                cleanupWsConnection(leavingTab.wsConnId);
+
+                set(st => ({
+                    tabs: st.tabs.map(tb =>
+                        tb.id === activeTabId
+                            ? { ...tb, wsConnId: null, wsState: 'idle' as WsConnState }
+                            : tb
+                    ),
+                }));
+            }
+        }
+
         const tab = get().tabs.find(t => t.id === tabId) ?? null;
+
         set(s => ({
             activeTabId: tabId,
             activeOrgId: tab?.path?.orgId ?? s.activeOrgId,
@@ -1084,6 +1142,218 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     clearRecentRequests: () => set({ recentRequests: [] }),
 
+    // ── Persistent WebSocket ──────────────────────────────────────────────────
+    wsConnect: async () => {
+        const s = get();
+        const tab = selectActiveTab(s);
+        const editing = tab?.editing;
+
+        if (!tab || !editing || editing.protocol !== 'websocket') return;
+
+        const activeEnv = s.environments.find(e => e.id === s.activeEnvId) ?? null;
+        const colVars: EnvVariable[] | undefined = (() => {
+            const p = tab.path;
+
+            if (!p) return undefined;
+
+            for (const org of s.organizations) {
+                for (const proj of org.projects ?? []) {
+                    const col = proj.collections?.find(c => c.id === p.collectionId);
+
+                    if (col) return (col as any).variables as EnvVariable[] | undefined;
+                }
+            }
+
+            return undefined;
+        })();
+
+        const rv = (text: string) => resolveVars(text, activeEnv, colVars, s.chainCache);
+
+        const tabId = tab.id;
+        const w = editing.ws;
+
+        set(st => patchActiveTab(st, { wsState: 'connecting' as WsConnState }));
+
+        try {
+            const headersMap: Record<string, string> = {};
+
+            w.headers
+                .filter(h => h.enabled && h.key)
+                .forEach(h => {
+                    headersMap[rv(h.key)] = rv(h.value);
+                });
+
+            let connId: string;
+
+            if (isWails) {
+                connId = await WsService.Open(
+                    transport.WsOpenRequest.createFrom({
+                        URL: rv(w.url),
+                        Headers: headersMap,
+                        TLSInsecure: w.tlsInsecure,
+                    })
+                );
+            } else {
+                connId = `mock_ws_${Date.now()}`;
+            }
+
+            set(st => {
+                const t = st.tabs.find(tb => tb.id === tabId);
+
+                if (!t) return st;
+
+                return {
+                    tabs: st.tabs.map(tb =>
+                        tb.id === tabId
+                            ? { ...tb, wsConnId: connId, wsState: 'connected' as WsConnState }
+                            : tb
+                    ),
+                };
+            });
+
+            const msgEvent = `ws:batch:${connId}`;
+            const closeEvent = `ws:close:${connId}`;
+
+            if (isWails) {
+                EventsOn(msgEvent, (batch: unknown) => {
+                    const raw = Array.isArray(batch) ? batch : [batch];
+
+                    set(st => {
+                        const t = st.tabs.find(tb => tb.id === tabId);
+
+                        if (!t || t.wsConnId !== connId) return st;
+
+                        const incoming: WsMessage[] = raw.map((msg: any) => ({
+                            id: crypto.randomUUID(),
+                            direction: 'received' as const,
+                            type: msg?.type ?? 'text',
+                            data: msg?.data ?? '',
+                            timestamp: msg?.timestamp ?? new Date().toISOString(),
+                        }));
+
+                        const merged = [...t.wsMessages, ...incoming];
+                        const capped =
+                            merged.length > WS_MAX_MESSAGES
+                                ? merged.slice(merged.length - WS_MAX_MESSAGES)
+                                : merged;
+
+                        return {
+                            tabs: st.tabs.map(tb =>
+                                tb.id === tabId ? { ...tb, wsMessages: capped } : tb
+                            ),
+                        };
+                    });
+                });
+
+                EventsOn(closeEvent, (_errStr: string) => {
+                    EventsOff(msgEvent);
+                    EventsOff(closeEvent);
+
+                    set(st => {
+                        const t = st.tabs.find(tb => tb.id === tabId);
+
+                        if (!t || t.wsConnId !== connId) return st;
+
+                        return {
+                            tabs: st.tabs.map(tb =>
+                                tb.id === tabId
+                                    ? {
+                                          ...tb,
+                                          wsState: 'disconnected' as WsConnState,
+                                          wsConnId: null,
+                                      }
+                                    : tb
+                            ),
+                        };
+                    });
+                });
+            }
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+
+            set(st => {
+                const t = st.tabs.find(tb => tb.id === tabId);
+
+                if (!t) return st;
+
+                return {
+                    tabs: st.tabs.map(tb =>
+                        tb.id === tabId
+                            ? {
+                                  ...tb,
+                                  wsState: 'disconnected' as WsConnState,
+                                  responseError: msg,
+                              }
+                            : tb
+                    ),
+                };
+            });
+        }
+    },
+
+    wsDisconnect: () => {
+        const s = get();
+        const tab = selectActiveTab(s);
+
+        if (!tab?.wsConnId) {
+            set(st => patchActiveTab(st, { wsState: 'idle' as WsConnState }));
+
+            return;
+        }
+
+        const connId = tab.wsConnId;
+        const tabId = tab.id;
+
+        cleanupWsConnection(connId);
+
+        // Keep wsMessages so the history stays visible after disconnect.
+        set(st => ({
+            tabs: st.tabs.map(tb =>
+                tb.id === tabId
+                    ? { ...tb, wsState: 'disconnected' as WsConnState, wsConnId: null }
+                    : tb
+            ),
+        }));
+    },
+
+    wsSend: async (message: string) => {
+        const s = get();
+        const tab = selectActiveTab(s);
+
+        if (!tab?.wsConnId) return;
+
+        const connId = tab.wsConnId;
+        const tabId = tab.id;
+
+        if (isWails) {
+            try {
+                await WsService.Send(connId, message);
+            } catch (err) {
+                console.error('ws send failed:', err);
+                return;
+            }
+        }
+
+        const sentMsg: WsMessage = {
+            id: crypto.randomUUID(),
+            direction: 'sent',
+            type: 'text',
+            data: message,
+            timestamp: new Date().toISOString(),
+        };
+
+        set(st => ({
+            tabs: st.tabs.map(tb =>
+                tb.id === tabId ? { ...tb, wsMessages: [...tb.wsMessages, sentMsg] } : tb
+            ),
+        }));
+    },
+
+    wsReset: () =>
+        set(st =>
+            patchActiveTab(st, { wsState: 'idle' as WsConnState, wsMessages: [], wsConnId: null })
+        ),
+
     // ── Send / save ───────────────────────────────────────────────────────────
     sendRequest: async () => {
         const s = get();
@@ -1216,14 +1486,14 @@ export const useAppStore = create<AppState>((set, get) => ({
                 if (k.mode === 'produce') {
                     bodyStr = isWails
                         ? await KafkaService.Produce({
-                              Bootstrap: k.bootstrap,
-                              Topic: k.topic,
-                              Key: k.key,
-                              Message: k.message,
+                              Bootstrap: rv(k.bootstrap),
+                              Topic: rv(k.topic),
+                              Key: rv(k.key),
+                              Message: rv(k.message),
                               Headers: Object.fromEntries(
                                   k.headers
                                       .filter(h => h.enabled && h.key)
-                                      .map(h => [h.key, h.value])
+                                      .map(h => [rv(h.key), rv(h.value)])
                               ),
                               Auth: auth,
                               MessageFormat: k.messageFormat,
@@ -1239,8 +1509,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                 } else {
                     bodyStr = isWails
                         ? await KafkaService.Consume({
-                              Bootstrap: k.bootstrap,
-                              Topic: k.topic,
+                              Bootstrap: rv(k.bootstrap),
+                              Topic: rv(k.topic),
                               Group: k.group,
                               Offset: k.offset,
                               MaxMessages: k.maxMessages || 50,
@@ -1335,29 +1605,42 @@ export const useAppStore = create<AppState>((set, get) => ({
                     SecretAccessKey: rv(sq.secretAccessKey),
                     SessionToken: rv(sq.sessionToken),
                 };
-                const attrs = sq.attributes
-                    .filter(a => a.enabled && a.key)
-                    .map(a => ({
-                        Key: a.key,
-                        Value: a.value,
-                        Type: a.type,
-                    }));
+                const isReceive = editing.method === 'GET';
                 let bodyStr: string;
                 if (isWails) {
-                    bodyStr = await SqsService.Send({
-                        QueueURL: rv(sq.queueUrl),
-                        Body: rv(sq.body),
-                        Region: sq.region,
-                        DelaySeconds: sq.delaySeconds,
-                        Attributes: attrs,
-                        Auth: sqsAuth,
-                        MessageGroupID: sq.messageGroupId,
-                        MessageDeduplicationID: sq.messageDeduplicationId,
-                    } as any);
+                    if (isReceive) {
+                        bodyStr = await SqsService.Receive({
+                            QueueURL: rv(sq.queueUrl),
+                            Region: rv(sq.region),
+                            Endpoint: rv(sq.endpoint),
+                            MaxMessages: sq.maxMessages,
+                            WaitSeconds: sq.waitSeconds,
+                            Auth: sqsAuth,
+                        } as any);
+                    } else {
+                        const attrs = sq.attributes
+                            .filter(a => a.enabled && a.key)
+                            .map(a => ({
+                                Key: a.key,
+                                Value: a.value,
+                                Type: a.type,
+                            }));
+                        bodyStr = await SqsService.Send({
+                            QueueURL: rv(sq.queueUrl),
+                            Body: rv(sq.body),
+                            Region: rv(sq.region),
+                            Endpoint: rv(sq.endpoint),
+                            DelaySeconds: sq.delaySeconds,
+                            Attributes: attrs,
+                            Auth: sqsAuth,
+                            MessageGroupID: sq.messageGroupId,
+                            MessageDeduplicationID: sq.messageDeduplicationId,
+                        } as any);
+                    }
                 } else {
                     bodyStr = JSON.stringify(
                         {
-                            status: 'sent',
+                            status: isReceive ? 'received' : 'sent',
                             messageId: 'mock-id-' + Date.now(),
                             queueUrl: sq.queueUrl,
                         },
