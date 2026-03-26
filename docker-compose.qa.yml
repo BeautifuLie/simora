@@ -12,7 +12,7 @@ services:
 
   # grpc-echo — gRPC helloworld server with reflection enabled (service: helloworld.Greeter, method: SayHello)
   grpc-echo:
-    image: namely/grpc-helloworld
+    build: ./qa/grpc-echo
     ports:
       - "50051:50051"
 

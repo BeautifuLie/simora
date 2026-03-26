@@ -56,3 +56,4 @@ test-reports/
 .claude
 CLAUDE.md
 QA.md
+qa/grpc-echo/grpc-echo
