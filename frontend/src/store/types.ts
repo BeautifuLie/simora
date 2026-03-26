@@ -107,10 +107,20 @@ export interface SqsConfig {
 export interface WsConfig {
     url: string;
     headers: RequestHeader[];
-    message: string; // optional initial message sent on connect
-    maxMessages: number; // 0 = default (50)
-    idleTimeout: number; // seconds, 0 = default (5)
+    message: string; // optional initial message sent on connect / default send text
+    maxMessages: number; // 0 = default (50) — unused in persistent mode
+    idleTimeout: number; // seconds, 0 = default (5) — unused in persistent mode
     tlsInsecure: boolean;
+}
+
+export type WsConnState = 'idle' | 'connecting' | 'connected' | 'disconnected';
+
+export interface WsMessage {
+    id: string;
+    direction: 'sent' | 'received';
+    type: 'text' | 'binary';
+    data: string;
+    timestamp: string; // ISO
 }
 
 // ── Environment ────────────────────────────────────────────────────────────
@@ -253,6 +263,9 @@ export interface Tab {
     responseError: string | null;
     activeResponseTab: 'body' | 'headers' | 'cookies' | 'timeline' | 'tests' | 'transform';
     testResults: TestResult[];
+    wsConnId: string | null;
+    wsMessages: WsMessage[];
+    wsState: WsConnState;
 }
 
 // ── Settings ───────────────────────────────────────────────────────────────

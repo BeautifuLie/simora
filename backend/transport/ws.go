@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -27,6 +28,148 @@ type wsReceivedMsg struct {
 	Type      string `json:"type"` // "text" | "binary"
 	Data      string `json:"data"`
 	Timestamp string `json:"timestamp"`
+}
+
+// WsIncomingMsg is pushed to the frontend via Wails events for persistent connections.
+type WsIncomingMsg struct {
+	Type      string `json:"type"` // "text" | "binary"
+	Data      string `json:"data"`
+	Timestamp string `json:"timestamp"`
+}
+
+// WsOpenRequest carries parameters for opening a persistent WebSocket connection.
+type WsOpenRequest struct {
+	URL         string
+	Headers     map[string]string
+	TLSInsecure bool
+}
+
+// wsConn wraps an active persistent WebSocket connection.
+type wsConn struct {
+	conn      *websocket.Conn
+	cancel    context.CancelFunc
+	onMessage func(WsIncomingMsg)
+	onClose   func(err error)
+}
+
+// WsPool manages a set of persistent WebSocket connections keyed by connection ID.
+type WsPool struct {
+	conns sync.Map // string → *wsConn
+}
+
+// DefaultWsPool is the application-level pool used by WsService.
+var DefaultWsPool = &WsPool{}
+
+// Open dials a WebSocket, registers it in the pool, and starts a reader goroutine.
+// onMsg is called for every incoming message; onClose is called when the connection ends.
+func (p *WsPool) Open(
+	ctx context.Context,
+	connID string,
+	req WsOpenRequest,
+	onMsg func(WsIncomingMsg),
+	onClose func(err error),
+) error {
+	dialer := wsDialer(req.TLSInsecure)
+
+	conn, _, err := dialer.DialContext(ctx, req.URL, wsHeaders(req.Headers))
+	if err != nil {
+		return fmt.Errorf("connect to %s: %w", req.URL, err)
+	}
+
+	conn.SetReadLimit(wsMaxMsgBytes)
+
+	connCtx, cancel := context.WithCancel(context.Background())
+
+	wc := &wsConn{
+		conn:      conn,
+		cancel:    cancel,
+		onMessage: onMsg,
+		onClose:   onClose,
+	}
+
+	p.conns.Store(connID, wc)
+
+	go p.readLoop(connID, wc, connCtx)
+
+	return nil
+}
+
+func (p *WsPool) readLoop(connID string, wc *wsConn, ctx context.Context) {
+	var readErr error
+
+	defer func() {
+		wc.cancel()
+		p.conns.Delete(connID)
+		wc.conn.Close()
+		wc.onClose(readErr)
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		mt, data, err := wc.conn.ReadMessage()
+		if err != nil {
+			readErr = err
+			return
+		}
+
+		msg := WsIncomingMsg{Timestamp: time.Now().UTC().Format(time.RFC3339)}
+
+		switch mt {
+		case websocket.TextMessage:
+			msg.Type = "text"
+			msg.Data = string(data)
+		case websocket.BinaryMessage:
+			msg.Type = "binary"
+			msg.Data = base64.StdEncoding.EncodeToString(data)
+		default:
+			continue
+		}
+
+		wc.onMessage(msg)
+	}
+}
+
+// Send writes a text message to the identified connection.
+func (p *WsPool) Send(connID, message string) error {
+	val, ok := p.conns.Load(connID)
+	if !ok {
+		return fmt.Errorf("connection %s not found", connID)
+	}
+
+	wc, ok := val.(*wsConn)
+	if !ok {
+		return fmt.Errorf("invalid connection entry for %s", connID)
+	}
+
+	if err := wc.conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+		return fmt.Errorf("send to %s: %w", connID, err)
+	}
+
+	return nil
+}
+
+// Close terminates the identified persistent connection.
+func (p *WsPool) Close(connID string) error {
+	val, ok := p.conns.Load(connID)
+	if !ok {
+		return nil
+	}
+
+	wc, ok := val.(*wsConn)
+	if !ok {
+		return nil
+	}
+
+	wc.cancel()
+	wc.conn.Close()
+	p.conns.Delete(connID)
+
+	return nil
 }
 
 // wsDialer builds a gorilla dialer, optionally skipping TLS verification.

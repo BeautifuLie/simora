@@ -904,6 +904,22 @@ export namespace transport {
 	        this.TLSInsecure = source["TLSInsecure"];
 	    }
 	}
+	export class WsOpenRequest {
+	    URL: string;
+	    Headers: Record<string, string>;
+	    TLSInsecure: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new WsOpenRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.URL = source["URL"];
+	        this.Headers = source["Headers"];
+	        this.TLSInsecure = source["TLSInsecure"];
+	    }
+	}
 
 }
 

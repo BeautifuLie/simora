@@ -7,6 +7,7 @@ import * as SqsService from '../../wailsjs/go/service/SqsService';
 import * as GrpcService from '../../wailsjs/go/service/GrpcService';
 import * as WsService from '../../wailsjs/go/service/WsService';
 import * as SettingsService from '../../wailsjs/go/service/SettingsService';
+import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 
 // Re-export all shared types from types.ts so components can import from one place.
 export type {
@@ -28,6 +29,8 @@ export type {
     KafkaConfig,
     SqsConfig,
     WsConfig,
+    WsConnState,
+    WsMessage,
     EnvVariable,
     Environment,
     QueryParam,
@@ -55,6 +58,8 @@ import type {
     KafkaConfig,
     SqsConfig,
     WsConfig,
+    WsConnState,
+    WsMessage,
     EnvVariable,
     Environment,
     QueryParam,
@@ -172,6 +177,11 @@ interface AppState {
     saveRequest: () => Promise<void>;
     setChainValue: (_name: string, _value: unknown) => void;
     clearRecentRequests: () => void;
+
+    // Actions — persistent WebSocket
+    wsConnect: () => Promise<void>;
+    wsDisconnect: () => Promise<void>;
+    wsSend: (_message: string) => Promise<void>;
 
     // Actions — organizations
     createOrganization: (_name: string) => void;
@@ -491,6 +501,9 @@ function makeTab(override: Partial<Tab> = {}): Tab {
         responseError: null,
         activeResponseTab: 'body',
         testResults: [],
+        wsConnId: null,
+        wsMessages: [],
+        wsState: 'idle',
         ...override,
     };
 }
@@ -922,6 +935,20 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     closeTab: tabId => {
         const { tabs, activeTabId, activeOrgId, activeProjectId } = get();
+
+        // Disconnect any open WS connection for the closing tab
+        const closingTab = tabs.find(t => t.id === tabId);
+
+        if (closingTab?.wsConnId) {
+            const connId = closingTab.wsConnId;
+
+            if (isWails) {
+                EventsOff(`ws:msg:${connId}`);
+                EventsOff(`ws:close:${connId}`);
+                WsService.Close(connId).catch(console.error);
+            }
+        }
+
         const idx = tabs.findIndex(t => t.id === tabId);
         const newTabs = tabs.filter(t => t.id !== tabId);
         const newActiveId =
@@ -931,6 +958,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                   ? null
                   : (newTabs[Math.max(0, idx - 1)]?.id ?? null);
         const newActiveTab = newTabs.find(t => t.id === newActiveId) ?? null;
+
         set({
             tabs: newTabs,
             activeTabId: newActiveId,
@@ -941,7 +969,33 @@ export const useAppStore = create<AppState>((set, get) => ({
     },
 
     switchTab: tabId => {
+        const { tabs, activeTabId } = get();
+
+        // When leaving a tab, disconnect any open WS connection
+        if (activeTabId && activeTabId !== tabId) {
+            const leavingTab = tabs.find(t => t.id === activeTabId);
+
+            if (leavingTab?.wsConnId) {
+                const connId = leavingTab.wsConnId;
+
+                if (isWails) {
+                    EventsOff(`ws:msg:${connId}`);
+                    EventsOff(`ws:close:${connId}`);
+                    WsService.Close(connId).catch(console.error);
+                }
+
+                set(st => ({
+                    tabs: st.tabs.map(tb =>
+                        tb.id === activeTabId
+                            ? { ...tb, wsConnId: null, wsState: 'idle' as WsConnState }
+                            : tb
+                    ),
+                }));
+            }
+        }
+
         const tab = get().tabs.find(t => t.id === tabId) ?? null;
+
         set(s => ({
             activeTabId: tabId,
             activeOrgId: tab?.path?.orgId ?? s.activeOrgId,
@@ -1086,6 +1140,201 @@ export const useAppStore = create<AppState>((set, get) => ({
         }),
 
     clearRecentRequests: () => set({ recentRequests: [] }),
+
+    // ── Persistent WebSocket ──────────────────────────────────────────────────
+    wsConnect: async () => {
+        const s = get();
+        const tab = selectActiveTab(s);
+        const editing = tab?.editing;
+
+        if (!tab || !editing || editing.protocol !== 'websocket') return;
+
+        const activeEnv = s.environments.find(e => e.id === s.activeEnvId) ?? null;
+        const colVars: EnvVariable[] | undefined = (() => {
+            const p = tab.path;
+
+            if (!p) return undefined;
+
+            for (const org of s.organizations) {
+                for (const proj of org.projects ?? []) {
+                    const col = proj.collections?.find(c => c.id === p.collectionId);
+
+                    if (col) return (col as any).variables as EnvVariable[] | undefined;
+                }
+            }
+
+            return undefined;
+        })();
+
+        const rv = (text: string) => resolveVars(text, activeEnv, colVars, s.chainCache);
+
+        const tabId = tab.id;
+        const w = editing.ws;
+
+        set(st => patchActiveTab(st, { wsState: 'connecting' as WsConnState }));
+
+        try {
+            const headersMap: Record<string, string> = {};
+
+            w.headers
+                .filter(h => h.enabled && h.key)
+                .forEach(h => {
+                    headersMap[rv(h.key)] = rv(h.value);
+                });
+
+            let connId: string;
+
+            if (isWails) {
+                connId = await WsService.Open({
+                    URL: rv(w.url),
+                    Headers: headersMap,
+                    TLSInsecure: w.tlsInsecure,
+                } as any);
+            } else {
+                connId = `mock_ws_${Date.now()}`;
+            }
+
+            set(st => {
+                const t = st.tabs.find(tb => tb.id === tabId);
+
+                if (!t) return st;
+
+                return {
+                    tabs: st.tabs.map(tb =>
+                        tb.id === tabId
+                            ? { ...tb, wsConnId: connId, wsState: 'connected' as WsConnState }
+                            : tb
+                    ),
+                };
+            });
+
+            const msgEvent = `ws:msg:${connId}`;
+            const closeEvent = `ws:close:${connId}`;
+
+            if (isWails) {
+                EventsOn(msgEvent, (msg: WsMessage) => {
+                    set(st => {
+                        const t = st.tabs.find(tb => tb.id === tabId);
+
+                        if (!t || t.wsConnId !== connId) return st;
+
+                        const newMsg: WsMessage = {
+                            id: crypto.randomUUID(),
+                            direction: 'received',
+                            type: (msg as any).type ?? 'text',
+                            data: (msg as any).data ?? '',
+                            timestamp: (msg as any).timestamp ?? new Date().toISOString(),
+                        };
+
+                        return {
+                            tabs: st.tabs.map(tb =>
+                                tb.id === tabId
+                                    ? { ...tb, wsMessages: [...tb.wsMessages, newMsg] }
+                                    : tb
+                            ),
+                        };
+                    });
+                });
+
+                EventsOn(closeEvent, (_errStr: string) => {
+                    EventsOff(msgEvent);
+                    EventsOff(closeEvent);
+
+                    set(st => {
+                        const t = st.tabs.find(tb => tb.id === tabId);
+
+                        if (!t || t.wsConnId !== connId) return st;
+
+                        return {
+                            tabs: st.tabs.map(tb =>
+                                tb.id === tabId
+                                    ? {
+                                          ...tb,
+                                          wsState: 'disconnected' as WsConnState,
+                                          wsConnId: null,
+                                      }
+                                    : tb
+                            ),
+                        };
+                    });
+                });
+            }
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+
+            set(st => {
+                const t = st.tabs.find(tb => tb.id === tabId);
+
+                if (!t) return st;
+
+                return {
+                    tabs: st.tabs.map(tb =>
+                        tb.id === tabId
+                            ? {
+                                  ...tb,
+                                  wsState: 'disconnected' as WsConnState,
+                                  responseError: msg,
+                              }
+                            : tb
+                    ),
+                };
+            });
+        }
+    },
+
+    wsDisconnect: async () => {
+        const s = get();
+        const tab = selectActiveTab(s);
+
+        if (!tab?.wsConnId) {
+            set(st => patchActiveTab(st, { wsState: 'idle' as WsConnState }));
+
+            return;
+        }
+
+        const connId = tab.wsConnId;
+        const tabId = tab.id;
+
+        if (isWails) {
+            EventsOff(`ws:msg:${connId}`);
+            EventsOff(`ws:close:${connId}`);
+            await WsService.Close(connId).catch(console.error);
+        }
+
+        set(st => ({
+            tabs: st.tabs.map(tb =>
+                tb.id === tabId ? { ...tb, wsState: 'idle' as WsConnState, wsConnId: null } : tb
+            ),
+        }));
+    },
+
+    wsSend: async (message: string) => {
+        const s = get();
+        const tab = selectActiveTab(s);
+
+        if (!tab?.wsConnId) return;
+
+        const connId = tab.wsConnId;
+        const tabId = tab.id;
+
+        if (isWails) {
+            await WsService.Send(connId, message);
+        }
+
+        const sentMsg: WsMessage = {
+            id: crypto.randomUUID(),
+            direction: 'sent',
+            type: 'text',
+            data: message,
+            timestamp: new Date().toISOString(),
+        };
+
+        set(st => ({
+            tabs: st.tabs.map(tb =>
+                tb.id === tabId ? { ...tb, wsMessages: [...tb.wsMessages, sentMsg] } : tb
+            ),
+        }));
+    },
 
     // ── Send / save ───────────────────────────────────────────────────────────
     sendRequest: async () => {
