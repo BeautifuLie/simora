@@ -90,9 +90,7 @@ test.backend.all: ## run all backend tests (unit + integration, docker managed)
 # === QA environment ===
 
 qa.up: ## start QA services (httpbin, grpc-echo, kafka, localstack, ws-echo)
-	docker compose -f docker-compose.qa.yml up -d
-	@echo "waiting for Kafka..."
-	@timeout 60s bash -c "until docker compose -f docker-compose.qa.yml exec -T kafka kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1; do sleep 2; done"
+	docker compose -f docker-compose.qa.yml up -d --wait
 	@echo "QA services are up."
 	@echo "  HTTP:      http://localhost:8080"
 	@echo "  gRPC:      localhost:50051"
