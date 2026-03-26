@@ -1,0 +1,201 @@
+{
+  "id": "qa-http-collection",
+  "name": "QA — HTTP",
+  "variables": [
+    { "key": "base_url", "value": "http://localhost:8080", "enabled": true },
+    { "key": "bearer_token", "value": "my-qa-token", "enabled": true }
+  ],
+  "requests": [],
+  "folders": [
+    {
+      "id": "qa-http-basics",
+      "name": "Basics",
+      "folders": [],
+      "requests": [
+        {
+          "id": "qa-http-get",
+          "name": "GET /get — echo query params",
+          "protocol": "http",
+          "method": "GET",
+          "url": "{{base_url}}/get",
+          "params": [
+            { "key": "foo", "value": "bar", "enabled": true },
+            { "key": "page", "value": "1", "enabled": true }
+          ],
+          "headers": [
+            { "key": "Accept", "value": "application/json", "enabled": true }
+          ],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "httpbin echoes back all query params under 'args'. Verify that 'foo=bar' and 'page=1' appear in the response."
+        },
+        {
+          "id": "qa-http-post-json",
+          "name": "POST /post — JSON body",
+          "protocol": "http",
+          "method": "POST",
+          "url": "{{base_url}}/post",
+          "params": [],
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "enabled": true }
+          ],
+          "body": "{\n  \"name\": \"QA Test\",\n  \"value\": 42\n}",
+          "bodyType": "json",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "httpbin echoes the request JSON under 'json'. Verify 'name' and 'value' appear."
+        },
+        {
+          "id": "qa-http-post-form",
+          "name": "POST /post — form-urlencoded",
+          "protocol": "http",
+          "method": "POST",
+          "url": "{{base_url}}/post",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "form",
+          "formFields": [
+            { "key": "username", "value": "qa-user", "enabled": true },
+            { "key": "password", "value": "secret", "enabled": true }
+          ],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Sends application/x-www-form-urlencoded. Look for 'form' object in the response."
+        },
+        {
+          "id": "qa-http-put",
+          "name": "PUT /put — update",
+          "protocol": "http",
+          "method": "PUT",
+          "url": "{{base_url}}/put",
+          "params": [],
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "enabled": true }
+          ],
+          "body": "{\n  \"id\": 1,\n  \"status\": \"updated\"\n}",
+          "bodyType": "json",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "httpbin echoes PUT body under 'json'."
+        },
+        {
+          "id": "qa-http-delete",
+          "name": "DELETE /delete",
+          "protocol": "http",
+          "method": "DELETE",
+          "url": "{{base_url}}/delete",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Returns 200 with request metadata. Verify the response is valid JSON."
+        }
+      ]
+    },
+    {
+      "id": "qa-http-auth",
+      "name": "Auth",
+      "folders": [],
+      "requests": [
+        {
+          "id": "qa-http-bearer",
+          "name": "GET /bearer — Bearer token",
+          "protocol": "http",
+          "method": "GET",
+          "url": "{{base_url}}/bearer",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "bearer", "token": "{{bearer_token}}", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "httpbin returns {\"authenticated\": true, \"token\": \"...\"} when a valid Bearer header is sent."
+        },
+        {
+          "id": "qa-http-basic",
+          "name": "GET /basic-auth — Basic auth",
+          "protocol": "http",
+          "method": "GET",
+          "url": "{{base_url}}/basic-auth/user/pass",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "basic", "token": "", "username": "user", "password": "pass", "headerName": "", "headerValue": "" },
+          "notes": "Returns 200 + {\"authenticated\":true} when credentials match the URL path segments."
+        }
+      ]
+    },
+    {
+      "id": "qa-http-inspect",
+      "name": "Inspect",
+      "folders": [],
+      "requests": [
+        {
+          "id": "qa-http-headers",
+          "name": "GET /headers — echo request headers",
+          "protocol": "http",
+          "method": "GET",
+          "url": "{{base_url}}/headers",
+          "params": [],
+          "headers": [
+            { "key": "X-Custom-Header", "value": "hello-from-simora", "enabled": true },
+            { "key": "X-Disabled",      "value": "should-not-appear", "enabled": false }
+          ],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Verify X-Custom-Header appears in 'headers' and X-Disabled does NOT (it's disabled)."
+        },
+        {
+          "id": "qa-http-status",
+          "name": "GET /status/418 — custom status code",
+          "protocol": "http",
+          "method": "GET",
+          "url": "{{base_url}}/status/418",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Returns HTTP 418 (I'm a teapot). Useful to verify the response panel shows non-200 status codes correctly."
+        },
+        {
+          "id": "qa-http-delay",
+          "name": "GET /delay/2 — slow response",
+          "protocol": "http",
+          "method": "GET",
+          "url": "{{base_url}}/delay/2",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Responds after 2 seconds. Good for testing timeout behaviour and the loading indicator."
+        },
+        {
+          "id": "qa-http-binary",
+          "name": "GET /image/png — binary response",
+          "protocol": "http",
+          "method": "GET",
+          "url": "{{base_url}}/image/png",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Returns a PNG image. Verify the binary viewer is shown (content-type badge + 'Save to file' button)."
+        }
+      ]
+    }
+  ]
+}

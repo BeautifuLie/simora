@@ -1,0 +1,90 @@
+services:
+  # httpbin — HTTP echo/inspect service
+  httpbin:
+    image: kennethreitz/httpbin
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost/get"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # grpc-echo — gRPC helloworld server with reflection enabled (service: helloworld.Greeter, method: SayHello)
+  grpc-echo:
+    image: namely/grpc-helloworld
+    ports:
+      - "50051:50051"
+
+  # Kafka — single-node KRaft, no auth (simpler for manual QA)
+  kafka:
+    image: bitnami/kafka:3.7
+    environment:
+      KAFKA_CFG_NODE_ID: "0"
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
+  # Creates test topics once Kafka is healthy, then exits
+  kafka-init:
+    image: bitnami/kafka:3.7
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic test-topic --partitions 3 --replication-factor 1
+        kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic orders     --partitions 1 --replication-factor 1
+        kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic events     --partitions 1 --replication-factor 1
+        echo "Topics created."
+
+  # LocalStack — SQS emulator
+  localstack:
+    image: localstack/localstack:3.7
+    environment:
+      SERVICES: sqs
+      DEFAULT_REGION: us-east-1
+    ports:
+      - "4566:4566"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Creates SQS queues once LocalStack is healthy, then exits
+  localstack-init:
+    image: amazon/aws-cli
+    depends_on:
+      localstack:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    environment:
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    command:
+      - |
+        aws --endpoint-url=http://localstack:4566 sqs create-queue --queue-name test-queue
+        aws --endpoint-url=http://localstack:4566 sqs create-queue --queue-name fifo-queue.fifo \
+          --attributes FifoQueue=true,ContentBasedDeduplication=true
+        echo "Queues created."
+
+  # WebSocket echo server — every sent message is echoed back
+  ws-echo:
+    image: jmalloc/echo-server
+    ports:
+      - "8765:8080"

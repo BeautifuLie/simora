@@ -1,0 +1,157 @@
+{
+  "id": "qa-sqs-collection",
+  "name": "QA — SQS",
+  "variables": [
+    { "key": "sqs_endpoint",  "value": "http://localhost:4566", "enabled": true },
+    { "key": "sqs_region",    "value": "us-east-1",             "enabled": true },
+    { "key": "sqs_key",       "value": "test",                   "enabled": true },
+    { "key": "sqs_secret",    "value": "test",                   "enabled": true },
+    { "key": "queue_url",     "value": "http://localhost:4566/000000000000/test-queue",            "enabled": true },
+    { "key": "fifo_queue_url","value": "http://localhost:4566/000000000000/fifo-queue.fifo",       "enabled": true }
+  ],
+  "requests": [],
+  "folders": [
+    {
+      "id": "qa-sqs-standard",
+      "name": "Standard queue",
+      "folders": [],
+      "requests": [
+        {
+          "id": "qa-sqs-send-simple",
+          "name": "Send — plain text",
+          "protocol": "sqs",
+          "method": "POST",
+          "url": "{{queue_url}}",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Sends a plain-text message to test-queue on LocalStack. No real AWS credentials needed — 'test'/'test' work.",
+          "sqs": {
+            "queueUrl": "{{queue_url}}",
+            "body": "Hello from Simora QA",
+            "region": "{{sqs_region}}",
+            "endpoint": "{{sqs_endpoint}}",
+            "delaySeconds": 0,
+            "attributes": [],
+            "accessKeyId": "{{sqs_key}}",
+            "secretKey": "{{sqs_secret}}",
+            "sessionToken": ""
+          }
+        },
+        {
+          "id": "qa-sqs-send-json",
+          "name": "Send — JSON + message attributes",
+          "protocol": "sqs",
+          "method": "POST",
+          "url": "{{queue_url}}",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Sends a JSON body with two custom message attributes. After receiving, verify both attributes appear under 'messageAttributes'.",
+          "sqs": {
+            "queueUrl": "{{queue_url}}",
+            "body": "{\n  \"event\": \"order.created\",\n  \"orderId\": 99\n}",
+            "region": "{{sqs_region}}",
+            "endpoint": "{{sqs_endpoint}}",
+            "delaySeconds": 0,
+            "attributes": [
+              { "key": "ContentType", "value": "application/json", "type": "String", "enabled": true },
+              { "key": "Source",      "value": "simora-qa",         "type": "String", "enabled": true }
+            ],
+            "accessKeyId": "{{sqs_key}}",
+            "secretKey": "{{sqs_secret}}",
+            "sessionToken": ""
+          }
+        },
+        {
+          "id": "qa-sqs-receive",
+          "name": "Receive — poll test-queue",
+          "protocol": "sqs",
+          "method": "GET",
+          "url": "{{queue_url}}",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Polls test-queue for up to 1 message. Send a message first, then receive to verify body + attributes.",
+          "sqs": {
+            "queueUrl": "{{queue_url}}",
+            "body": "",
+            "region": "{{sqs_region}}",
+            "endpoint": "{{sqs_endpoint}}",
+            "delaySeconds": 0,
+            "attributes": [],
+            "accessKeyId": "{{sqs_key}}",
+            "secretKey": "{{sqs_secret}}",
+            "sessionToken": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "qa-sqs-fifo",
+      "name": "FIFO queue",
+      "folders": [],
+      "requests": [
+        {
+          "id": "qa-sqs-fifo-send",
+          "name": "Send — FIFO queue",
+          "protocol": "sqs",
+          "method": "POST",
+          "url": "{{fifo_queue_url}}",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Sends to the FIFO queue. ContentBasedDeduplication is enabled so duplicate messages within 5 min are dropped.",
+          "sqs": {
+            "queueUrl": "{{fifo_queue_url}}",
+            "body": "{\n  \"step\": 1,\n  \"action\": \"charge\"\n}",
+            "region": "{{sqs_region}}",
+            "endpoint": "{{sqs_endpoint}}",
+            "delaySeconds": 0,
+            "attributes": [],
+            "accessKeyId": "{{sqs_key}}",
+            "secretKey": "{{sqs_secret}}",
+            "sessionToken": ""
+          }
+        },
+        {
+          "id": "qa-sqs-fifo-receive",
+          "name": "Receive — FIFO queue",
+          "protocol": "sqs",
+          "method": "GET",
+          "url": "{{fifo_queue_url}}",
+          "params": [],
+          "headers": [],
+          "body": "",
+          "bodyType": "none",
+          "formFields": [],
+          "auth": { "type": "none", "token": "", "username": "", "password": "", "headerName": "", "headerValue": "" },
+          "notes": "Poll the FIFO queue. Messages arrive in the order they were sent.",
+          "sqs": {
+            "queueUrl": "{{fifo_queue_url}}",
+            "body": "",
+            "region": "{{sqs_region}}",
+            "endpoint": "{{sqs_endpoint}}",
+            "delaySeconds": 0,
+            "attributes": [],
+            "accessKeyId": "{{sqs_key}}",
+            "secretKey": "{{sqs_secret}}",
+            "sessionToken": ""
+          }
+        }
+      ]
+    }
+  ]
+}
