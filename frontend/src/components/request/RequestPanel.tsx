@@ -1954,6 +1954,19 @@ export function RequestPanel() {
                 style={{ borderBottom: '1px solid var(--border-0)' }}
             >
                 <RequestNameBar />
+                {!validateSsl && (
+                    <div
+                        style={{
+                            background: 'rgba(245,158,11,0.12)',
+                            color: '#f59e0b',
+                            padding: '4px 12px',
+                            fontSize: 'var(--text-sm)',
+                            borderBottom: '1px solid rgba(245,158,11,0.3)',
+                        }}
+                    >
+                        SSL verification is disabled — connection is not secure
+                    </div>
+                )}
                 <div
                     className="flex items-center gap-2"
                     style={{ height: 'var(--toolbar-height)', padding: '0 12px' }}

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Plus, X, Trash2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore, type Environment } from '@/store/app';
+import { VarInput } from '@/components/ui/VarInput';
 
 // ── Env color palette ─────────────────────────────────────────────────────
 
@@ -22,6 +23,7 @@ function VarRow({ envId, idx }: { envId: string; idx: number }) {
     const env = environments.find(e => e.id === envId);
     const v = env?.variables[idx];
     if (!v) return null;
+    const varSuggestions = (env?.variables ?? []).filter(vv => vv.enabled && vv.key);
 
     return (
         <div
@@ -82,18 +84,22 @@ function VarRow({ envId, idx }: { envId: string; idx: number }) {
                 }}
                 spellCheck={false}
             />
-            <input
+            <VarInput
                 value={v.value}
-                onChange={e => setEnvVar(envId, idx, v.key, e.target.value)}
+                onChange={val => setEnvVar(envId, idx, v.key, val)}
                 placeholder="value"
-                className="w-full bg-transparent outline-none"
+                envVars={varSuggestions}
                 style={{
                     padding: '6px 8px 6px 0',
                     fontSize: 'var(--text-base)',
                     fontFamily: "'JetBrains Mono Variable', monospace",
                     color: 'var(--text-1)',
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: 0,
+                    height: 'auto',
+                    minHeight: 32,
                 }}
-                spellCheck={false}
             />
 
             <button

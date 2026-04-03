@@ -1259,11 +1259,11 @@ function FolderItem({
                 />
                 {open ? (
                     <FolderOpen
-                        style={{ width: 12, height: 12, color: 'var(--yellow)', flexShrink: 0 }}
+                        style={{ width: 12, height: 12, color: 'var(--text-1)', flexShrink: 0 }}
                     />
                 ) : (
                     <Folder
-                        style={{ width: 12, height: 12, color: 'var(--text-2)', flexShrink: 0 }}
+                        style={{ width: 12, height: 12, color: 'var(--text-1)', flexShrink: 0 }}
                     />
                 )}
                 {renaming ? (

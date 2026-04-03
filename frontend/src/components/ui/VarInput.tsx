@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAppStore } from '@/store/app';
 
 export interface VarInputProps {
     value: string;
@@ -69,6 +70,16 @@ function renderHighlighted(text: string, knownVars: Set<string>): string {
     return result;
 }
 
+function fuzzyMatch(name: string, filter: string): boolean {
+    let fi = 0;
+    const n = name.toLowerCase();
+    const f = filter.toLowerCase();
+    for (let i = 0; i < n.length && fi < f.length; i++) {
+        if (n[i] === f[fi]) fi++;
+    }
+    return fi === f.length;
+}
+
 export function VarInput({
     value,
     onChange,
@@ -83,6 +94,8 @@ export function VarInput({
     const [dropFilter, setDropFilter] = React.useState('');
     const inputRef = React.useRef<HTMLInputElement>(null);
     const containerRef = React.useRef<HTMLDivElement>(null);
+    const openEnvPanel = useAppStore(s => s.openEnvPanel);
+    const isMac = navigator.platform.includes('Mac');
 
     const knownVars = React.useMemo(
         () => buildVarSet(envVars, collectionVars),
@@ -100,8 +113,7 @@ export function VarInput({
 
     const filteredSuggestions = React.useMemo(() => {
         if (!dropFilter) return suggestions;
-        const f = dropFilter.toLowerCase();
-        return suggestions.filter(s => s.toLowerCase().includes(f));
+        return suggestions.filter(s => fuzzyMatch(s, dropFilter));
     }, [suggestions, dropFilter]);
 
     // Close dropdown on outside click
@@ -239,7 +251,7 @@ export function VarInput({
                 }}
             />
             {/* Dropdown */}
-            {showDropdown && filteredSuggestions.length > 0 && (
+            {showDropdown && (
                 <div
                     style={{
                         position: 'absolute',
@@ -288,6 +300,38 @@ export function VarInput({
                             {name}
                         </button>
                     ))}
+                    <button
+                        type="button"
+                        onMouseDown={e => {
+                            e.preventDefault();
+                            setShowDropdown(false);
+                            setDropFilter('');
+                            openEnvPanel();
+                        }}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            width: '100%',
+                            textAlign: 'left',
+                            padding: '4px 8px',
+                            cursor: 'pointer',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--text-2)',
+                            background: 'transparent',
+                            border: 'none',
+                            borderTop: '1px solid var(--border-0)',
+                        }}
+                        onMouseEnter={e => {
+                            (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-1)';
+                        }}
+                        onMouseLeave={e => {
+                            (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-2)';
+                        }}
+                    >
+                        <span>Edit environments</span>
+                        <span>{isMac ? '⌘E' : 'Ctrl+E'}</span>
+                    </button>
                 </div>
             )}
         </div>

@@ -2,6 +2,8 @@ package service
 
 import (
 	"bytes"
+	"compress/flate"
+	"compress/gzip"
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
@@ -12,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/andybalholm/brotli"
 	"simora/backend/domain"
 )
 
@@ -194,11 +197,40 @@ func isTextContentType(ct string) bool {
 	return ct == ""
 }
 
+// decompressBody wraps resp.Body with the appropriate decompressor when the
+// server sets Content-Encoding. This handles cases where Go's transport did not
+// auto-decompress (e.g. brotli, or gzip when the user set Accept-Encoding manually).
+func decompressBody(resp *http.Response) (io.ReadCloser, error) {
+	ce := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Encoding")))
+	switch ce {
+	case "gzip":
+		gr, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("gzip reader: %w", err)
+		}
+
+		return gr, nil
+	case "deflate":
+		return flate.NewReader(resp.Body), nil
+	case "br":
+		return io.NopCloser(brotli.NewReader(resp.Body)), nil
+	default:
+		return resp.Body, nil
+	}
+}
+
 // readResponse reads the HTTP response body and returns a domain.Response.
 func readResponse(resp *http.Response, start time.Time) (*domain.Response, error) {
 	const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 
-	limited := io.LimitReader(resp.Body, maxResponseSize)
+	body, err := decompressBody(resp)
+	if err != nil {
+		return nil, fmt.Errorf("decompress response body: %w", err)
+	}
+
+	defer body.Close()
+
+	limited := io.LimitReader(body, maxResponseSize)
 
 	respBody, err := io.ReadAll(limited)
 	if err != nil {

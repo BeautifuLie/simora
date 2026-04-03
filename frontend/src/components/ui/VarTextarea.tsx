@@ -73,6 +73,16 @@ function renderHighlighted(text: string, knownVars: Set<string>): string {
     return result;
 }
 
+function fuzzyMatch(name: string, filter: string): boolean {
+    let fi = 0;
+    const n = name.toLowerCase();
+    const f = filter.toLowerCase();
+    for (let i = 0; i < n.length && fi < f.length; i++) {
+        if (n[i] === f[fi]) fi++;
+    }
+    return fi === f.length;
+}
+
 export function VarTextarea({
     value,
     onChange,
@@ -106,8 +116,7 @@ export function VarTextarea({
 
     const filteredSuggestions = React.useMemo(() => {
         if (!dropFilter) return suggestions;
-        const f = dropFilter.toLowerCase();
-        return suggestions.filter(s => s.toLowerCase().includes(f));
+        return suggestions.filter(s => fuzzyMatch(s, dropFilter));
     }, [suggestions, dropFilter]);
 
     // Sync scroll between textarea and highlight layer
