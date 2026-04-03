@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"simora/backend/domain"
+	"simora/backend/keyring"
 	"simora/backend/service"
 	mock "simora/backend/test/mock/repository"
 )
@@ -25,7 +26,7 @@ func newTestEnv(t *testing.T) *testEnv {
 	te := &testEnv{
 		mockRepo: mock.NewMockOrganizationRepository(ctrl),
 	}
-	te.svc = service.NewOrganizationService(te.mockRepo)
+	te.svc = service.NewOrganizationService(te.mockRepo, keyring.NewMemStore())
 
 	return te
 }

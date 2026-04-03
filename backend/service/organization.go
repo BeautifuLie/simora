@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"simora/backend/domain"
+	"simora/backend/keyring"
 )
 
 const maxFolderDepth = 100
@@ -19,27 +20,46 @@ type OrganizationRepository interface {
 
 type OrganizationService struct {
 	repo OrganizationRepository
+	kr   keyring.Store
 	mu   sync.RWMutex
 }
 
-func NewOrganizationService(repo OrganizationRepository) *OrganizationService {
+func NewOrganizationService(repo OrganizationRepository, kr keyring.Store) *OrganizationService {
 	return &OrganizationService{
 		repo: repo,
+		kr:   kr,
 	}
 }
 
-// load wraps repo.LoadOrganizations with error context.
+// load loads organisations from disk and hydrates credentials from the keyring.
+// If any plaintext credentials are found in the JSON (legacy migration), they are
+// migrated to the keyring and the file is immediately re-saved without them.
 func (s *OrganizationService) load() ([]domain.Organisation, error) {
 	orgs, err := s.repo.LoadOrganizations()
 	if err != nil {
 		return nil, fmt.Errorf("load organisations: %w", err)
 	}
 
+	if migrated := hydrateCredentials(orgs, s.kr); migrated {
+		// Write a clean version of the file (credentials zeroed) right away.
+		if saveErr := s.saveRaw(orgs); saveErr != nil {
+			// Non-fatal: credentials are in keyring, migration just didn't flush.
+			_ = saveErr
+		}
+	}
+
 	return orgs, nil
 }
 
-// save wraps repo.SaveOrganizations with error context.
+// save extracts credentials to the keyring, then persists the zeroed struct.
 func (s *OrganizationService) save(orgs []domain.Organisation) error {
+	extractCredentials(orgs, s.kr)
+
+	return s.saveRaw(orgs)
+}
+
+// saveRaw writes orgs as-is (without credential extraction).
+func (s *OrganizationService) saveRaw(orgs []domain.Organisation) error {
 	if err := s.repo.SaveOrganizations(orgs); err != nil {
 		return fmt.Errorf("save organisations: %w", err)
 	}
@@ -444,6 +464,15 @@ func (s *OrganizationService) DeleteOrganization(id string) error {
 		return ErrOrgNotFound
 	}
 
+	// Clean up keyring entries for every request in the org.
+	for _, proj := range orgs[orgIdx].Projects {
+		for _, coll := range proj.Collections {
+			for _, reqID := range collectRequestIDs(coll) {
+				deleteRequestCredentials(s.kr, reqID)
+			}
+		}
+	}
+
 	orgs = append(orgs[:orgIdx], orgs[orgIdx+1:]...)
 
 	return s.save(orgs)
@@ -466,6 +495,13 @@ func (s *OrganizationService) DeleteProject(orgID, id string) error {
 	projIdx, ok := findProject(orgs[orgIdx].Projects, id)
 	if !ok {
 		return ErrProjectNotFound
+	}
+
+	// Clean up keyring entries for all requests in the project.
+	for _, coll := range orgs[orgIdx].Projects[projIdx].Collections {
+		for _, reqID := range collectRequestIDs(coll) {
+			deleteRequestCredentials(s.kr, reqID)
+		}
 	}
 
 	orgs[orgIdx].Projects = append(orgs[orgIdx].Projects[:projIdx], orgs[orgIdx].Projects[projIdx+1:]...)
@@ -497,6 +533,12 @@ func (s *OrganizationService) DeleteCollection(orgID, projID, id string) error {
 		return ErrCollNotFound
 	}
 
+	// Clean up keyring entries for all requests in the collection.
+	coll := orgs[orgIdx].Projects[projIdx].Collections[collIdx]
+	for _, reqID := range collectRequestIDs(coll) {
+		deleteRequestCredentials(s.kr, reqID)
+	}
+
 	colls := &orgs[orgIdx].Projects[projIdx].Collections
 	*colls = append((*colls)[:collIdx], (*colls)[collIdx+1:]...)
 
@@ -506,6 +548,8 @@ func (s *OrganizationService) DeleteCollection(orgID, projID, id string) error {
 func (s *OrganizationService) DeleteRequest(orgID, projID, collID, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	deleteRequestCredentials(s.kr, id)
 
 	return s.updateCollection(orgID, projID, collID, func(coll *domain.Collection) error {
 		for i, req := range coll.Requests {

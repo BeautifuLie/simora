@@ -19,12 +19,18 @@ type FormField struct {
 }
 
 type AuthConfig struct {
-	Type        string `json:"type"`
-	Token       string `json:"token"`
-	Username    string `json:"username"`
-	Password    string `json:"password"`
-	HeaderName  string `json:"headerName"`
-	HeaderValue string `json:"headerValue"`
+	Type               string `json:"type"`
+	Token              string `json:"token"`
+	Username           string `json:"username"`
+	Password           string `json:"password"`
+	HeaderName         string `json:"headerName"`
+	HeaderValue        string `json:"headerValue"`
+	OAuth2GrantType    string `json:"oauth2GrantType,omitempty"`
+	OAuth2ClientID     string `json:"oauth2ClientId,omitempty"`
+	OAuth2ClientSecret string `json:"oauth2ClientSecret,omitempty"`
+	OAuth2TokenURL     string `json:"oauth2TokenUrl,omitempty"`
+	OAuth2Scope        string `json:"oauth2Scope,omitempty"`
+	OAuth2AccessToken  string `json:"oauth2AccessToken,omitempty"`
 }
 
 type GrpcConfig struct {
@@ -63,14 +69,19 @@ type SqsAttribute struct {
 }
 
 type SqsConfig struct {
-	QueueURL     string         `json:"queueUrl"`
-	Body         string         `json:"body"`
-	Region       string         `json:"region"`
-	DelaySeconds int            `json:"delaySeconds"`
-	Attributes   []SqsAttribute `json:"attributes"`
-	AccessKeyID  string         `json:"accessKeyId"`
-	SecretKey    string         `json:"secretKey"`
-	SessionToken string         `json:"sessionToken"`
+	QueueURL               string         `json:"queueUrl"`
+	Body                   string         `json:"body"`
+	Region                 string         `json:"region"`
+	Endpoint               string         `json:"endpoint,omitempty"`
+	DelaySeconds           int            `json:"delaySeconds"`
+	MaxMessages            int            `json:"maxMessages,omitempty"`
+	WaitSeconds            int            `json:"waitSeconds,omitempty"`
+	Attributes             []SqsAttribute `json:"attributes"`
+	AccessKeyID            string         `json:"accessKeyId"`
+	SecretAccessKey        string         `json:"secretAccessKey"`
+	SessionToken           string         `json:"sessionToken"`
+	MessageGroupID         string         `json:"messageGroupId,omitempty"`
+	MessageDeduplicationID string         `json:"messageDeduplicationId,omitempty"`
 }
 
 type WsConfig struct {

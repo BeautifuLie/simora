@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { domain, transport } from '../../wailsjs/go/models';
 import * as OrganizationService from '../../wailsjs/go/service/OrganizationService';
+import * as CollectionService from '../../wailsjs/go/service/CollectionService';
 import * as RequestService from '../../wailsjs/go/service/RequestService';
 import * as KafkaService from '../../wailsjs/go/service/KafkaService';
 import * as SqsService from '../../wailsjs/go/service/SqsService';
@@ -250,6 +251,12 @@ interface AppState {
     ) => void;
     createCollection: (_orgId: string, _projectId: string, _name: string) => string;
     importCollection: (_orgId: string, _projectId: string, _col: Collection) => void;
+    importSimoraCollection: (
+        _orgId: string,
+        _projectId: string,
+        _jsonText: string,
+        _password: string
+    ) => Promise<void>;
     renameCollection: (_collectionId: string, _name: string) => void;
     deleteCollection: (_collectionId: string) => void;
     setCollectionVariables: (_collectionId: string, _vars: EnvVariable[]) => void;
@@ -2616,6 +2623,29 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
             persistCollection().catch(console.error);
         }
+    },
+
+    importSimoraCollection: async (orgId, projectId, jsonText, password) => {
+        if (!isWails) return;
+        const col = await CollectionService.ImportCollection(orgId, projectId, jsonText, password);
+        set(s => ({
+            organizations: s.organizations.map(org => {
+                if (org.id !== orgId) return org;
+                return {
+                    ...org,
+                    projects: org.projects?.map(proj => {
+                        if (proj.id !== projectId) return proj;
+                        return {
+                            ...proj,
+                            collections: [
+                                ...(proj.collections ?? []),
+                                col as unknown as Collection,
+                            ],
+                        };
+                    }),
+                };
+            }) as Organization[],
+        }));
     },
 
     renameCollection: (collectionId, name) => {
