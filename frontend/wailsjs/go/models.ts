@@ -7,17 +7,17 @@ export namespace domain {
 	    password: string;
 	    headerName: string;
 	    headerValue: string;
-	    oauth2GrantType: string;
-	    oauth2ClientId: string;
-	    oauth2ClientSecret: string;
-	    oauth2TokenUrl: string;
-	    oauth2Scope: string;
-	    oauth2AccessToken: string;
-
+	    oauth2GrantType?: string;
+	    oauth2ClientId?: string;
+	    oauth2ClientSecret?: string;
+	    oauth2TokenUrl?: string;
+	    oauth2Scope?: string;
+	    oauth2AccessToken?: string;
+	
 	    static createFrom(source: any = {}) {
 	        return new AuthConfig(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.type = source["type"];
@@ -148,21 +148,21 @@ export namespace domain {
 	    queueUrl: string;
 	    body: string;
 	    region: string;
-	    endpoint: string;
+	    endpoint?: string;
 	    delaySeconds: number;
-	    maxMessages: number;
-	    waitSeconds: number;
+	    maxMessages?: number;
+	    waitSeconds?: number;
 	    attributes: SqsAttribute[];
 	    accessKeyId: string;
 	    secretAccessKey: string;
 	    sessionToken: string;
-	    messageGroupId: string;
-	    messageDeduplicationId: string;
-
+	    messageGroupId?: string;
+	    messageDeduplicationId?: string;
+	
 	    static createFrom(source: any = {}) {
 	        return new SqsConfig(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.queueUrl = source["queueUrl"];
@@ -611,22 +611,7 @@ export namespace main {
 }
 
 export namespace service {
-
-	export class ExportOptions {
-	    IncludeSecrets: boolean;
-	    Password: string;
-
-	    static createFrom(source: any = {}) {
-	        return new ExportOptions(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.IncludeSecrets = source["IncludeSecrets"];
-	        this.Password = source["Password"];
-	    }
-	}
-
+	
 	export class CookieEntry {
 	    domain: string;
 	    name: string;
@@ -645,6 +630,20 @@ export namespace service {
 	        this.value = source["value"];
 	        this.path = source["path"];
 	        this.secure = source["secure"];
+	    }
+	}
+	export class ExportOptions {
+	    IncludeSecrets: boolean;
+	    Password: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportOptions(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.IncludeSecrets = source["IncludeSecrets"];
+	        this.Password = source["Password"];
 	    }
 	}
 
