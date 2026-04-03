@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- HTTP responses with `Content-Encoding: gzip`, `deflate`, or `br` (brotli) are now automatically decompressed before display
+- Amber warning banner in the request panel when SSL verification is disabled
+- `{{variable}}` token highlighting in the environment variables value field (green = resolved, red = unknown)
+- "Edit environments" shortcut footer in the variable autocomplete dropdown (⌘E / Ctrl+E)
+- Variable autocomplete now uses fuzzy (subsequence) matching instead of simple substring matching
+
+### Changed
+
+- Folder icons in the sidebar no longer change color when expanded; both states use `--text-1`
+
 ## [v0.3.0] - 2026-04-03
 
 ### Added
