@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.0] - 2026-04-03
+
 ### Added
 
 - Credentials are now stored in the OS keyring (macOS Keychain / Windows Credential Manager / Linux Secret Service) and never written to `config.json`; existing plaintext credentials are migrated automatically on first launch
