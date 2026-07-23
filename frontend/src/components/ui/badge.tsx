@@ -3,13 +3,13 @@ import { cn } from '@/lib/utils';
 import type { HttpMethod } from '@/store/app';
 
 const METHOD_STYLES: Record<HttpMethod, { color: string; bg: string }> = {
-    GET: { color: 'var(--m-get)', bg: 'var(--m-get-bg)' },
-    POST: { color: 'var(--m-post)', bg: 'var(--m-post-bg)' },
-    PUT: { color: 'var(--m-put)', bg: 'var(--m-put-bg)' },
-    PATCH: { color: 'var(--m-patch)', bg: 'var(--m-patch-bg)' },
-    DELETE: { color: 'var(--m-delete)', bg: 'var(--m-delete-bg)' },
-    HEAD: { color: 'var(--m-head)', bg: 'var(--m-head-bg)' },
-    OPTIONS: { color: 'var(--m-options)', bg: 'var(--m-options-bg)' },
+    GET: { color: 'var(--red)', bg: 'var(--m-get-bg)' },
+    POST: { color: 'var(--red)', bg: 'var(--m-post-bg)' },
+    PUT: { color: 'var(--red)', bg: 'var(--m-put-bg)' },
+    PATCH: { color: 'var(--red)', bg: 'var(--m-patch-bg)' },
+    DELETE: { color: 'var(--red)', bg: 'var(--m-delete-bg)' },
+    HEAD: { color: 'var(--red)', bg: 'var(--m-head-bg)' },
+    OPTIONS: { color: 'var(--red)', bg: 'var(--m-options-bg)' },
 };
 
 export function MethodBadge({
