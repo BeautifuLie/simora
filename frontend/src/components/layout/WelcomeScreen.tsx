@@ -30,7 +30,7 @@ const PROTOCOLS: ProtoCard[] = [
     {
         icon: Zap,
         label: 'gRPC',
-        color: 'var(--blue)',
+        color: 'var(--purple)',
         desc: 'Invoke RPC methods via server reflection — no .proto file needed',
     },
     {
