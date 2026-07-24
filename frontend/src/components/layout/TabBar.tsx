@@ -55,7 +55,7 @@ function TabItem({ tab }: { tab: Tab }) {
                     style={{
                         fontSize: 9,
                         fontWeight: 700,
-                        color: 'var(--blue)',
+                        color: 'var(--purple)',
                         letterSpacing: '0.03em',
                     }}
                 >
