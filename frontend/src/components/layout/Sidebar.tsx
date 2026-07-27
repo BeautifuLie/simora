@@ -991,7 +991,7 @@ function RequestItem({
                                   : req.protocol === 'kafka'
                                     ? 'var(--purple)'
                                     : req.protocol === 'websocket'
-                                      ? '#22c55e'
+                                      ? 'var(--red)'
                                       : 'var(--green)',
                         background:
                             req.protocol === 'graphql'
@@ -1000,7 +1000,9 @@ function RequestItem({
                                   ? 'color-mix(in srgb, var(--gray) 15%, transparent)'
                                   : req.protocol === 'kafka'
                                     ? 'color-mix(in srgb, var(--purple) 15%, transparent)'
-                                    : 'color-mix(in srgb, var(--green) 15%, transparent)',
+                                    : req.protocol === 'websocket'
+                                      ? 'color-mix(in srgb, var(--red) 15%, transparent)'
+                                      : 'color-mix(in srgb, var(--green) 15%, transparent)',
                     }}
                 >
                     {req.protocol === 'graphql'
