@@ -989,7 +989,7 @@ function RequestItem({
                                 : req.protocol === 'grpc'
                                   ? 'var(--gray)'
                                   : req.protocol === 'kafka'
-                                    ? 'var(--orange)'
+                                    ? 'var(--purple)'
                                     : req.protocol === 'websocket'
                                       ? '#22c55e'
                                       : 'var(--green)',
@@ -999,7 +999,7 @@ function RequestItem({
                                 : req.protocol === 'grpc'
                                   ? 'color-mix(in srgb, var(--gray) 15%, transparent)'
                                   : req.protocol === 'kafka'
-                                    ? 'color-mix(in srgb, var(--orange) 15%, transparent)'
+                                    ? 'color-mix(in srgb, var(--purple) 15%, transparent)'
                                     : 'color-mix(in srgb, var(--green) 15%, transparent)',
                     }}
                 >
