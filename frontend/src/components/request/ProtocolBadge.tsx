@@ -14,7 +14,7 @@ export const PROTOCOL_META: {
     { id: 'grpc', label: 'gRPC', color: 'var(--gray)', icon: Zap },
     { id: 'kafka', label: 'Kafka', color: 'var(--purple)', icon: Radio },
     { id: 'sqs', label: 'SQS', color: 'var(--blue)', icon: MessageSquare },
-    { id: 'websocket', label: 'WS', color: '#22c55e', icon: Wifi },
+    { id: 'websocket', label: 'WS', color: 'var(--red)', icon: Wifi },
 ];
 
 export function getProtocolMeta(id: Protocol) {
